@@ -1,0 +1,3052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZVEZDA — Endless Neon Parkour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pink:#ff2d95;
+    --cyan:#00e5ff;
+    --purple:#8a2be2;
+    --green:#39ff88;
+    --glass: rgba(14, 6, 32, 0.45);
+    --border: rgba(0, 229, 255, 0.35);
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:#04010a;
+    color:#eaf6ff;
+    font-family:'Rajdhani', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    user-select:none;
+  }
+  #scene{ position:fixed; inset:0; width:100%; height:100%; display:block; z-index:0; }
+
+  #flash{
+    position:fixed; inset:0; z-index:5; pointer-events:none;
+    opacity:0; background:#ff0044; mix-blend-mode:screen;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; inset:0; z-index:10; pointer-events:none;
+    font-family:'Orbitron', monospace;
+    transition: opacity .3s ease;
+  }
+  #hud.hidden{ opacity:0; pointer-events:none; }
+  .panel{
+    position:absolute;
+    padding:9px 14px 11px;
+    background:var(--glass);
+    border:1px solid var(--border);
+    border-radius:10px;
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    box-shadow: 0 0 20px rgba(0,229,255,0.15), inset 0 0 26px rgba(120,0,255,0.14);
+    min-width:132px;
+  }
+  .panel .label{
+    font-size:10px; letter-spacing:2.5px; color:#7fd9ff; opacity:.85;
+    display:flex; justify-content:space-between; gap:10px; margin-bottom:4px;
+  }
+  .panel .value{
+    font-size:22px; font-weight:700; color:#fff;
+    text-shadow:0 0 12px rgba(0,229,255,.8), 0 0 26px rgba(0,229,255,.35);
+    line-height:1.05;
+  }
+  .panel .value small{ font-size:10px; opacity:.55; margin-left:4px; letter-spacing:1px;}
+  .bar{
+    margin-top:6px; height:5px; width:100%;
+    background:rgba(255,255,255,0.08);
+    border-radius:3px; overflow:hidden;
+    box-shadow: inset 0 0 6px rgba(0,0,0,.7);
+  }
+  .bar .fill{
+    height:100%; width:0%; border-radius:3px;
+    transition: width .08s linear;
+  }
+  .fill.cyan{ background:linear-gradient(90deg,#0066ff,#00e5ff); box-shadow:0 0 12px #00e5ff; }
+  .fill.pink{ background:linear-gradient(90deg,#8a2be2,#ff2d95); box-shadow:0 0 12px #ff2d95; }
+
+  #hud-topleft{ left:22px; top:20px; }
+  #hud-topright{ right:22px; top:20px; text-align:right; }
+  #hud-bottomleft{ left:22px; bottom:22px; width:186px; }
+  #hud-bottomright{ right:22px; bottom:22px; text-align:right; }
+
+  #livesVal{
+    font-size:20px; letter-spacing:3px; color:#ff2d95;
+    text-shadow:0 0 14px rgba(255,45,149,.9), 0 0 34px rgba(255,45,149,.4);
+    transition: color .2s ease;
+  }
+  #distVal{
+    font-size:20px; color:#39ff88;
+    text-shadow:0 0 14px rgba(57,255,136,.85);
+  }
+
+  /* ---------- Compass ---------- */
+  #compass-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+  }
+  #compass {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,229,255,0.15), inset 0 0 20px rgba(0,229,255,0.05);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(12px);
+  }
+  #compass.active {
+    width: 140px;
+    height: 140px;
+    box-shadow: 0 0 60px rgba(0,229,255,0.6), inset 0 0 40px rgba(0,229,255,0.2);
+    border-color: #00e5ff;
+  }
+  #compass-arrow {
+    font-size: 24px;
+    color: #00e5ff;
+    text-shadow: 0 0 10px #00e5ff;
+    transition: transform 0.1s linear;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  #compass.active #compass-arrow {
+    font-size: 56px;
+    margin-top: 10px;
+  }
+  #compass-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #7fd9ff;
+    margin-top: 2px;
+    opacity: 0.8;
+  }
+  #compass.active #compass-label {
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: #fff;
+    margin-top: 8px;
+  }
+  #compass-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.4);
+    border-radius: 4px;
+    color: #00e5ff;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background 0.2s;
+  }
+  #compass-btn:hover {
+    background: rgba(0,229,255,0.3);
+  }
+
+  #mazePrompt{
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%);
+    padding:11px 26px 13px; border-radius:12px; text-align:center;
+    background: rgba(20,4,40,.6);
+    border:1px solid rgba(255,45,149,.65);
+    box-shadow: 0 0 30px rgba(255,45,149,.55), inset 0 0 26px rgba(255,45,149,.18);
+    backdrop-filter: blur(12px);
+    opacity:0; transition: opacity .35s ease;
+    pointer-events:none;
+  }
+  #mazePrompt.show{ opacity:1; }
+  #mazePrompt .big{
+    font-size:15px; letter-spacing:4px; color:#fff;
+    text-shadow:0 0 14px #ff2d95, 0 0 34px #ff2d95;
+    animation: promptPulse 1.4s ease-in-out infinite;
+  }
+  #mazePrompt .small{
+    font-size:10px; letter-spacing:3px; color:#ff9ecb; margin-top:4px;
+  }
+  @keyframes promptPulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.55; }
+  }
+
+  #crosshair{
+    position:absolute; left:50%; top:50%; width:26px; height:26px;
+    transform:translate(-50%,-50%);
+  }
+  #crosshair::before{
+    content:''; position:absolute; left:50%; top:50%;
+    width:5px; height:5px; margin:-2.5px 0 0 -2.5px; border-radius:50%;
+    background:#eafcff;
+    box-shadow:0 0 8px #00e5ff, 0 0 18px #00e5ff;
+  }
+  #crosshair::after{
+    content:''; position:absolute; inset:0; border-radius:50%;
+    border:1px solid rgba(0,229,255,0.42);
+    box-shadow:0 0 10px rgba(0,229,255,0.35);
+  }
+
+  #toast{
+    position:absolute; left:50%; top:16%; transform:translate(-50%,0) scale(.9);
+    font-family:'Orbitron',monospace; font-size:18px; letter-spacing:5px;
+    padding:12px 34px; border-radius:10px;
+    color:#39ff88; border:1px solid rgba(57,255,136,.6);
+    background:rgba(6,26,16,.5);
+    backdrop-filter: blur(10px);
+    box-shadow:0 0 30px rgba(57,255,136,.5), inset 0 0 24px rgba(57,255,136,.15);
+    opacity:0; pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space:nowrap;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,0) scale(1); }
+
+  /* ---------- Maze ---------- */
+  #mazeCanvas{
+    position:fixed; inset:0; z-index:12; display:none;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    background:#04010a;
+  }
+  #mazeCanvas.active{ display:block; }
+  #mazeFx{
+    position:fixed; inset:0; z-index:13; display:none; pointer-events:none;
+    background:
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.16) 3px, rgba(0,0,0,0) 4px),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(2,0,8,0.85) 100%);
+  }
+  #mazeFx.active{ display:block; }
+
+  #mazeHud{
+    position:fixed; inset:0; z-index:14; display:none; pointer-events:none;
+    font-family:'Orbitron',monospace;
+  }
+  #mazeHud.active{ display:block; }
+  #mazeHud .mz-title{
+    position:absolute; top:22px; left:50%; transform:translateX(-50%);
+    font-size:13px; letter-spacing:7px; color:#00e5ff;
+    text-shadow:0 0 16px #00e5ff, 0 0 40px rgba(0,229,255,.6);
+    white-space:nowrap;
+  }
+  #mazeHud .mz-sub{
+    position:absolute; top:46px; left:50%; transform:translateX(-50%);
+    font-size:10px; letter-spacing:4px; color:#ff9ecb; opacity:.8;
+    white-space:nowrap;
+  }
+  #mazeHud .mz-hint{
+    position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+    font-size:10px; letter-spacing:3px; color:#8fb6d8; opacity:.65;
+    white-space:nowrap;
+  }
+
+  #fade{
+    position:fixed; inset:0; z-index:30; background:#04010a;
+    opacity:0; pointer-events:none;
+  }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:20;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(ellipse at center, rgba(30,6,60,.55) 0%, rgba(4,1,10,.93) 70%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: opacity .35s ease;
+  }
+  .overlay.hidden{ opacity:0; pointer-events:none; }
+
+  .card{
+    position:relative;
+    width:min(760px, 93vw);
+    padding:36px 44px 32px;
+    text-align:center;
+    border-radius:18px;
+    background: linear-gradient(160deg, rgba(24,8,52,.84), rgba(8,3,20,.88));
+    border:1px solid rgba(0,229,255,.35);
+    box-shadow:
+      0 0 60px rgba(138,43,226,.35),
+      0 0 140px rgba(255,45,149,.18),
+      inset 0 0 60px rgba(0,229,255,.07);
+    max-height: 94vh;
+    overflow-y:auto;
+  }
+  .card::before{
+    content:''; position:absolute; inset:-1px; border-radius:18px; pointer-events:none;
+    background:linear-gradient(120deg, rgba(0,229,255,.5), transparent 35%, transparent 65%, rgba(255,45,149,.5));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    padding:1px; opacity:.7;
+  }
+
+  h1.logo{
+    font-family:'Orbitron',monospace;
+    font-size: clamp(46px, 9vw, 92px);
+    font-weight:900;
+    letter-spacing: clamp(6px, 1.4vw, 16px);
+    margin:0 0 2px;
+    background: linear-gradient(100deg,#00e5ff 0%, #b06bff 45%, #ff2d95 85%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 0 22px rgba(0,229,255,.55)) drop-shadow(0 0 52px rgba(255,45,149,.45));
+    animation: pulseGlow 3.4s ease-in-out infinite;
+  }
+  @keyframes pulseGlow{
+    0%,100%{ filter: drop-shadow(0 0 22px rgba(0,229,255,.5)) drop-shadow(0 0 52px rgba(255,45,149,.4)); }
+    50%{ filter: drop-shadow(0 0 34px rgba(0,229,255,.8)) drop-shadow(0 0 76px rgba(255,45,149,.65)); }
+  }
+  .sub{
+    font-family:'Orbitron',monospace;
+    font-size:12px; letter-spacing:7px; color:#9d7bff; margin:0 0 22px;
+    text-shadow:0 0 14px rgba(157,123,255,.9);
+  }
+
+  .controls{
+    display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:9px 26px; margin: 0 auto 18px; max-width:620px;
+    text-align:left;
+  }
+  .controls div{ display:flex; align-items:center; gap:8px; font-size:14px; letter-spacing:1.5px; color:#b9d9ff;}
+  .controls span{ font-size:12px; letter-spacing:2px; color:#8fb6d8; }
+  kbd{
+    font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+    padding:4px 9px; border-radius:5px; color:#eafcff;
+    background:rgba(0,229,255,.10);
+    border:1px solid rgba(0,229,255,.45);
+    box-shadow:0 0 12px rgba(0,229,255,.28), inset 0 0 10px rgba(0,229,255,.12);
+    min-width:26px; text-align:center;
+  }
+  .hint{
+    font-size:13px; letter-spacing:2px; color:#7fd9ff; opacity:.75;
+    margin:0 0 22px; line-height:1.7;
+  }
+  .hint b{ color:#ff2d95; font-weight:700; }
+  .hint i{ color:#39ff88; font-style:normal; font-weight:700; }
+
+  .neon-btn{
+    font-family:'Orbitron',monospace; font-size:15px; font-weight:700;
+    letter-spacing:5px; padding:16px 44px; cursor:pointer;
+    color:#04121a; border:none; border-radius:10px;
+    background: linear-gradient(90deg, #00e5ff, #ff2d95);
+    box-shadow: 0 0 26px rgba(0,229,255,.65), 0 0 60px rgba(255,45,149,.45);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  }
+  .neon-btn:hover{
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 40px rgba(0,229,255,.95), 0 0 90px rgba(255,45,149,.7);
+    filter: brightness(1.12);
+  }
+  .neon-btn:active{ transform: translateY(0) scale(.99); }
+
+  .stat-row{
+    display:flex; justify-content:center; gap:44px; margin: 0 0 22px;
+    flex-wrap: wrap;
+  }
+  .stat-row .s-label{ font-size:10px; letter-spacing:3px; color:#7fd9ff; opacity:.8; }
+  .stat-row .s-val{ font-family:'Orbitron',monospace; font-size:24px; color:#fff; text-shadow:0 0 16px rgba(0,229,255,.7); }
+
+  .upg-grid{
+    display:grid; grid-template-columns: repeat(3, 1fr); gap:16px;
+    margin: 10px 0 6px;
+  }
+  .upg{
+    position:relative; cursor:pointer;
+    padding:20px 12px 18px; border-radius:14px;
+    background: linear-gradient(170deg, rgba(20,8,44,.95), rgba(8,3,20,.95));
+    border:1px solid rgba(0,229,255,.28);
+    box-shadow: inset 0 0 30px rgba(0,229,255,.06);
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    overflow:hidden;
+  }
+  .upg:hover{
+    transform: translateY(-6px) scale(1.03);
+    border-color: rgba(255,45,149,.7);
+    box-shadow: 0 0 34px rgba(255,45,149,.5), inset 0 0 40px rgba(255,45,149,.12);
+  }
+  .upg .ico{
+    font-size:34px; line-height:1; margin-bottom:10px;
+    filter: drop-shadow(0 0 16px currentColor);
+  }
+  .upg .name{
+    font-family:'Orbitron',monospace; font-size:14px; letter-spacing:3px;
+    color:#fff; margin-bottom:8px;
+  }
+  .upg .desc{ font-size:12px; letter-spacing:1px; color:#9fc2e0; line-height:1.5; min-height:36px;}
+  .upg .key{
+    position:absolute; top:8px; right:10px;
+    font-family:'Orbitron',monospace; font-size:10px; color:#7fd9ff; opacity:.7;
+  }
+  .upg.c1{ color:#00e5ff; } .upg.c2{ color:#ff2d95; } .upg.c3{ color:#39ff88; }
+
+  /* ---------- Gamble UI ---------- */
+  .game-card{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:16px 10px; border-radius:12px; cursor:pointer;
+    background: rgba(10,4,24,0.8); border:1px solid rgba(255,45,149,0.3);
+    transition: all 0.2s ease;
+  }
+  .game-card:hover{
+    background: rgba(30,10,60,0.9); border-color: #ff2d95;
+    box-shadow: 0 0 20px rgba(255,45,149,0.4);
+    transform: translateY(-3px);
+  }
+  .game-card .g-ico{ font-size:26px; margin-bottom:6px; }
+  .game-card .g-name{ font-family:'Orbitron',monospace; font-size:12px; letter-spacing:2px; color:#fff; text-align:center;}
+  .game-card .g-chance{ font-size:10px; color:#39ff88; margin-top:4px; text-align:center;}
+
+  .blackjack-card{
+    display:inline-block; width:60px; height:85px; border-radius:8px;
+    background:#fff; color:#000; font-family:'Orbitron',monospace;
+    font-size:24px; line-height:85px; text-align:center;
+    margin:0 5px; box-shadow:0 4px 10px rgba(0,0,0,0.5);
+    position:relative;
+  }
+  .blackjack-card.red{ color:#d00; }
+  .blackjack-card.hidden-card{
+    background: linear-gradient(135deg, #1a0b2e, #0d0418);
+    color: transparent; border: 2px solid #ff2d95;
+  }
+
+  .slot-reel{
+    display:inline-block; width:70px; height:90px; margin:0 5px;
+    background:rgba(0,0,0,0.6); border:2px solid #00e5ff;
+    border-radius:8px; font-size:40px; line-height:90px;
+    box-shadow: inset 0 0 20px rgba(0,229,255,0.3);
+  }
+
+  .plinko-ball{
+    width:16px; height:16px; background:#ff2d95; border-radius:50%;
+    position:absolute; left:50%; top:0; transform:translateX(-50%);
+    box-shadow: 0 0 12px #ff2d95;
+    transition: top 1.5s cubic-bezier(0.4, 0, 1, 1), left 1.5s cubic-bezier(0.4, 0, 1, 1);
+  }
+
+  .gamble-game.hidden { display: none !important; }
+
+  #loading{
+    position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+    background:#04010a; color:#00e5ff; font-family:'Orbitron',monospace;
+    letter-spacing:4px; font-size:13px; text-align:center; padding:0 20px;
+  }
+  #loading.hidden{ display:none; }
+
+  @media (max-width: 640px){
+    .upg-grid{ grid-template-columns: 1fr; }
+    .controls{ grid-template-columns: 1fr; }
+    .stat-row{ gap:20px; }
+    #gamble-selection{ grid-template-columns: repeat(2, 1fr) !important; }
+    #compass-container { top: 10px; }
+    #compass { width: 50px; height: 50px; }
+    #compass-arrow { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="flash"></div>
+
+<!-- MAZE -->
+<canvas id="mazeCanvas"></canvas>
+<div id="mazeFx"></div>
+<div id="mazeHud">
+  <div class="mz-title">◆ THE GRID ◆</div>
+  <div class="mz-sub">FIND THE EXIT — CLAIM YOUR UPGRADE</div>
+  <div class="mz-hint">WASD / ARROWS TO MOVE</div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+
+  <div id="compass-container">
+    <div id="compass">
+      <div id="compass-arrow">▲</div>
+      <div id="compass-label">GOAL</div>
+    </div>
+    <button id="compass-btn">SHOW DIRECTION [C]</button>
+  </div>
+
+  <div id="hud-topleft" class="panel">
+    <div class="label"><span>VELOCITY</span></div>
+    <div class="value"><span id="speedVal">0.0</span><small>U/S</small></div>
+    <div class="bar"><div id="speedBar" class="fill cyan"></div></div>
+  </div>
+
+  <div id="hud-topright" class="panel">
+    <div class="label"><span>RUN TIME</span></div>
+    <div class="value" id="timerVal">00:00.00</div>
+    <div class="label" style="margin-top:6px; margin-bottom:2px;"><span>DISTANCE</span></div>
+    <div id="distVal">0 M</div>
+  </div>
+
+  <div id="hud-bottomleft" class="panel">
+    <div class="label"><span>DASH</span><span id="dashState">READY</span></div>
+    <div class="bar"><div id="dashBar" class="fill pink" style="width:100%"></div></div>
+  </div>
+
+  <div id="hud-bottomright" class="panel">
+    <div class="label"><span>LIVES</span></div>
+    <div id="livesVal">◆◆◆</div>
+  </div>
+
+  <div id="mazePrompt">
+    <div class="big">PRESS [E] — ENTER THE GRID</div>
+    <div class="small">SURVIVE THE MAZE · CHOOSE AN UPGRADE</div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<!-- TITLE -->
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1 class="logo">ZVEZDA</h1>
+    <p class="sub">ENDLESS NEON PARKOUR // SECTOR ∞</p>
+
+    <div class="controls">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>MOVE</span></div>
+      <div><kbd>MOUSE</kbd><span>LOOK</span></div>
+      <div><kbd>SPACE</kbd><span>JUMP / DOUBLE JUMP</span></div>
+      <div><kbd>SHIFT</kbd><span>SPRINT</span></div>
+      <div><kbd>Q</kbd><span>DASH</span></div>
+      <div><kbd>E</kbd><span>ENTER THE GRID</span></div>
+      <div><kbd>C</kbd><span>COMPASS</span></div>
+    </div>
+
+    <p class="hint">
+      The city never ends. Run, jump and dash across an infinite neon skyline.<br>
+      Every <b>60 seconds</b> the Grid opens — press <kbd>E</kbd> to dive into a<br>
+      pixel dungeon, find the exit, and claim an upgrade:<br>
+      <b>SPEED</b> · <b>JUMP</b> · or an <i>EXTRA LIFE</i>.<br>
+      Falling or touching a laser costs a life. Three lives. Go.
+    </p>
+
+    <button id="startBtn" class="neon-btn">CLICK TO JACK IN</button>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h1 class="logo" style="font-size:44px;">PAUSED</h1>
+    <p class="sub">SYSTEM SUSPENDED</p>
+    <p class="hint">Click below to resume the run.</p>
+    <button id="resumeBtn" class="neon-btn">RESUME</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="overlay hidden">
+  <div class="card">
+    <h1 class="logo" style="font-size:44px;">SIGNAL LOST</h1>
+    <p class="sub">YOUR RUN HAS ENDED</p>
+    <div class="stat-row">
+      <div>
+        <div class="s-label">TIME SURVIVED</div>
+        <div class="s-val" id="goTime">00:00.00</div>
+      </div>
+      <div>
+        <div class="s-label">BEST DISTANCE</div>
+        <div class="s-val" id="goDist">0 M</div>
+      </div>
+      <div>
+        <div class="s-label">UPGRADES</div>
+        <div class="s-val" id="goUpg" style="font-size:16px;">—</div>
+      </div>
+    </div>
+    
+    <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+      <button id="gambleBtn" class="neon-btn" style="background:linear-gradient(90deg,#ff2d95,#8a2be2);">GAMBLE FOR REVIVE</button>
+      <button id="retryBtn" class="neon-btn" style="background:linear-gradient(90deg,#444,#222); color:#fff;">RESTART RUN</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPGRADE -->
+<div id="upgrade" class="overlay hidden">
+  <div class="card">
+    <h1 class="logo" style="font-size:40px;">UPGRADE</h1>
+    <p class="sub">THE GRID REWARDS THE SWIFT</p>
+
+    <div class="upg-grid">
+      <div class="upg c1" data-upg="speed">
+        <div class="key">1</div>
+        <div class="ico">⚡</div>
+        <div class="name">SPEED</div>
+        <div class="desc">+12% movement speed.<br>Become the blur.</div>
+      </div>
+      <div class="upg c2" data-upg="jump">
+        <div class="key">2</div>
+        <div class="ico">▲</div>
+        <div class="name">JUMP</div>
+        <div class="desc">+10% jump height.<br>Touch the skyline.</div>
+      </div>
+      <div class="upg c3" data-upg="life">
+        <div class="key">3</div>
+        <div class="ico">◆</div>
+        <div class="name">LIFE</div>
+        <div class="desc">+1 extra life.<br>One more chance.</div>
+      </div>
+    </div>
+
+    <p class="hint" style="margin-top:16px; margin-bottom:0;">Click a card or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></p>
+  </div>
+</div>
+
+<!-- GAMBLE -->
+<div id="gamble" class="overlay hidden">
+  <div class="card" style="width:min(900px, 95vw);">
+    <h1 class="logo" style="font-size:36px;">REVIVE GAMBLE</h1>
+    <p class="sub">RISK IT ALL FOR ONE MORE CHANCE</p>
+
+    <!-- Game Selection -->
+    <div id="gamble-selection" class="upg-grid" style="grid-template-columns: repeat(5, 1fr); gap:10px;">
+      <div class="game-card" data-game="blackjack">
+        <div class="g-ico">♠️</div>
+        <div class="g-name">BLACKJACK</div>
+        <div class="g-chance">VS COMPUTER</div>
+      </div>
+      <div class="game-card" data-game="roulette">
+        <div class="g-ico">🎡</div>
+        <div class="g-name">ROULETTE</div>
+        <div class="g-chance">50 / 50</div>
+      </div>
+      <div class="game-card" data-game="slots">
+        <div class="g-ico">🎰</div>
+        <div class="g-name">SLOTS</div>
+        <div class="g-chance">30% · 2 ♥</div>
+      </div>
+      <div class="game-card" data-game="higherlower">
+        <div class="g-ico">🃏</div>
+        <div class="g-name">HIGH/LOW</div>
+        <div class="g-chance">50 / 50</div>
+      </div>
+      <div class="game-card" data-game="plinko">
+        <div class="g-ico">🔻</div>
+        <div class="g-name">PLINKO</div>
+        <div class="g-chance">30% · SPEED</div>
+      </div>
+    </div>
+
+    <!-- Blackjack Game -->
+    <div id="gamble-blackjack" class="gamble-game hidden" style="margin-top:20px;">
+      <div style="font-size:12px; letter-spacing:2px; color:#7fd9ff; margin-bottom:10px;">DEALER</div>
+      <div id="bj-dealer-cards" style="margin-bottom:20px;"></div>
+      <div style="font-size:12px; letter-spacing:2px; color:#7fd9ff; margin-bottom:10px;">YOU</div>
+      <div id="bj-player-cards"></div>
+      <div id="bj-actions" style="margin-top:20px;">
+        <button id="bj-hit" class="neon-btn" style="font-size:12px; padding:10px 20px;">HIT</button>
+        <button id="bj-stand" class="neon-btn" style="font-size:12px; padding:10px 20px; background:linear-gradient(90deg,#39ff88,#00e5ff);">STAND</button>
+      </div>
+      <div id="bj-result" style="margin-top:15px; font-family:'Orbitron',monospace; font-size:16px;"></div>
+    </div>
+
+    <!-- Roulette Game -->
+    <div id="gamble-roulette" class="gamble-game hidden" style="margin-top:20px;">
+      <div id="roulette-wheel" style="width:120px; height:120px; border-radius:50%; background:conic-gradient(#ff2d95 0deg 180deg, #00e5ff 180deg 360deg); margin:0 auto 20px; border:4px solid #fff; box-shadow:0 0 30px rgba(255,255,255,0.5); transition: transform 3s cubic-bezier(0.2,1,0.3,1);"></div>
+      <button id="roulette-spin" class="neon-btn" style="font-size:12px; padding:10px 20px;">SPIN (PICK RED)</button>
+      <div id="roulette-result" style="margin-top:15px; font-family:'Orbitron',monospace; font-size:16px;"></div>
+    </div>
+
+    <!-- Slots Game -->
+    <div id="gamble-slots" class="gamble-game hidden" style="margin-top:20px;">
+      <div style="margin-bottom:20px;">
+        <div id="slot-1" class="slot-reel">❓</div>
+        <div id="slot-2" class="slot-reel">❓</div>
+        <div id="slot-3" class="slot-reel">❓</div>
+      </div>
+      <button id="slots-spin" class="neon-btn" style="font-size:12px; padding:10px 20px;">SPIN</button>
+      <div id="slots-result" style="margin-top:15px; font-family:'Orbitron',monospace; font-size:16px;"></div>
+    </div>
+
+    <!-- Higher/Lower Game -->
+    <div id="gamble-higherlower" class="gamble-game hidden" style="margin-top:20px;">
+      <div style="font-size:12px; letter-spacing:2px; color:#7fd9ff; margin-bottom:10px;">CURRENT CARD</div>
+      <div id="hl-current-card" class="blackjack-card" style="margin-bottom:20px;">?</div>
+      <div id="hl-actions">
+        <button id="hl-higher" class="neon-btn" style="font-size:12px; padding:10px 20px; background:linear-gradient(90deg,#00e5ff,#39ff88);">HIGHER</button>
+        <button id="hl-lower" class="neon-btn" style="font-size:12px; padding:10px 20px; background:linear-gradient(90deg,#ff2d95,#8a2be2);">LOWER</button>
+      </div>
+      <div id="hl-result" style="margin-top:15px; font-family:'Orbitron',monospace; font-size:16px;"></div>
+    </div>
+
+    <!-- Plinko Game -->
+    <div id="gamble-plinko" class="gamble-game hidden" style="margin-top:20px;">
+      <div id="plinko-board" style="width:300px; height:200px; margin:0 auto 20px; position:relative; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #333; overflow:hidden;">
+        <div style="position:absolute; bottom:0; width:100%; display:flex; height:40px;">
+          <div style="flex:1; background:rgba(255,45,149,0.2); border-right:1px solid #333;"></div>
+          <div style="flex:1; background:rgba(57,255,136,0.2); border-left:1px solid #333;"></div>
+        </div>
+        <div id="plinko-ball" class="plinko-ball hidden"></div>
+      </div>
+      <button id="plinko-drop" class="neon-btn" style="font-size:12px; padding:10px 20px;">DROP BALL</button>
+      <div id="plinko-result" style="margin-top:15px; font-family:'Orbitron',monospace; font-size:16px;"></div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <button id="gamble-cancel" class="neon-btn" style="font-size:11px; padding:8px 16px; background:linear-gradient(90deg,#444,#222); color:#fff;">CANCEL GAMBLE (FORFEIT)</button>
+    </div>
+  </div>
+</div>
+
+<div id="fade"></div>
+<div id="loading">LOADING NEON GRID…</div>
+
+<script>
+  window.__NEON_STARTED__ = false;
+  setTimeout(function(){
+    if (!window.__NEON_STARTED__) {
+      var el = document.getElementById('loading');
+      if (el) el.textContent = 'FAILED TO LOAD THREE.JS FROM CDN — CHECK YOUR CONNECTION';
+    }
+  }, 9000);
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+/* ============================================================================
+   ZVEZDA — Endless first-person cyberpunk parkour
+   ========================================================================== */
+
+import * as THREE from 'three';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+
+/* ==========================================================================
+   1. CONFIG
+   ========================================================================== */
+const CFG = {
+  eyeHeight:  1.62,
+  radius:     0.38,
+  height:     1.75,
+
+  gravity:      30,
+  jumpVel:      11.0,
+  doubleJumpVel:10.0,
+  walkSpeed:     8.6,
+  sprintSpeed:  13.2,
+  groundAccel:  120,
+  airAccel:      62,
+  groundFriction:80,
+  maxFall:       48,
+
+  dashSpeed:    31,
+  dashTime:     0.16,
+  dashCooldown: 1.0,
+
+  coyoteTime:   0.12,
+  jumpBuffer:   0.15,
+
+  killY:       -42,
+  mouseSens:   0.0022,
+  fovBase:     78,
+  fovSprint:    84,
+  fovDash:      94,
+
+  mazeInterval: 60,
+};
+
+const stats = {
+  speedMult: 1,
+  jumpMult:  1,
+  lives:     3,
+  maxLives:  3,
+};
+
+let gambleUsed = false;
+
+/* ==========================================================================
+   2. AUDIO
+   ========================================================================== */
+const Sfx = {
+  ctx: null,
+  master: null,
+
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.22;
+      this.master.connect(this.ctx.destination);
+    } catch (e) { this.ctx = null; }
+  },
+
+  tone(freq, dur, type = 'sine', vol = 0.4, slideTo = null) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(24, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur + 0.06);
+  },
+
+  noise(dur = 0.18, vol = 0.25, cutoff = 1400) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff;
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t);
+  },
+
+  seq(freqs, step, type = 'triangle', vol = 0.35) {
+    freqs.forEach((f, i) => setTimeout(() => this.tone(f, 0.22, type, vol), i * step * 1000));
+  },
+
+  jump()       { this.tone(400, 0.15, 'triangle', 0.42, 820); },
+  doubleJump() { this.tone(620, 0.16, 'triangle', 0.38, 1180); },
+  dash()       { this.noise(0.22, 0.3, 2600); this.tone(160, 0.22, 'sawtooth', 0.3, 900); },
+  land()       { this.tone(150, 0.10, 'sine', 0.30, 70); this.noise(0.09, 0.10, 900); },
+  die()        { this.tone(320, 0.45, 'sawtooth', 0.32, 55); this.noise(0.3, 0.2, 700); },
+  mazeOpen()   { this.seq([880, 1174, 1568], 0.08, 'triangle', 0.3); },
+  mazeEnter()  { this.tone(220, 0.5, 'sawtooth', 0.25, 70); this.noise(0.4, 0.18, 600); },
+  mazeWin()    { this.seq([523, 659, 784, 1046], 0.09, 'triangle', 0.38); },
+  upgrade()    { this.seq([392, 523, 659, 880], 0.07, 'triangle', 0.38); },
+  gameover()   { this.tone(220, 0.9, 'sawtooth', 0.32, 45); this.noise(0.8, 0.2, 500); },
+  win()        { this.seq([523, 659, 784, 1046, 1318], 0.08, 'triangle', 0.4); },
+  lose()       { this.tone(180, 0.6, 'sawtooth', 0.4, 60); }
+};
+
+/* ==========================================================================
+   3. RENDERER / SCENE / POST
+   ========================================================================== */
+const canvas = document.getElementById('scene');
+
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: true, powerPreference: 'high-performance', stencil: false,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x1a0830, 0.0042);
+
+const camera = new THREE.PerspectiveCamera(CFG.fovBase, window.innerWidth / window.innerHeight, 0.1, 6000);
+camera.rotation.order = 'YXZ';
+
+scene.add(new THREE.AmbientLight(0x3a1f6e, 1.1));
+scene.add(new THREE.HemisphereLight(0x7a3bff, 0x0a0418, 0.9));
+
+const keyLight = new THREE.DirectionalLight(0xff5fa8, 1.5);
+keyLight.position.set(-40, 90, 30);
+scene.add(keyLight);
+
+const rimLight = new THREE.DirectionalLight(0x2fd8ff, 1.1);
+rimLight.position.set(50, 40, -80);
+scene.add(rimLight);
+
+const playerLight = new THREE.PointLight(0x00e5ff, 26, 42, 2);
+scene.add(playerLight);
+
+/* Post-processing */
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.92, 0.62, 0.55
+);
+composer.addPass(bloom);
+
+const VignetteShader = {
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 } },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float time; varying vec2 vUv;
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 d = vUv - 0.5;
+      float v = 1.0 - smoothstep(0.30, 0.84, length(d));
+      c.rgb *= mix(0.58, 1.0, v);
+      float scan = sin((vUv.y + time * 0.06) * 900.0) * 0.010;
+      c.rgb += scan;
+      gl_FragColor = c;
+    }`,
+};
+const vignettePass = new ShaderPass(VignetteShader);
+composer.addPass(vignettePass);
+composer.addPass(new OutputPass());
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+
+  const pr = Math.min(window.devicePixelRatio || 1, 1.75);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(w, h);
+  composer.setPixelRatio(pr);
+  composer.setSize(w, h);
+  bloom.setSize(w, h);
+
+  if (Maze.canvas) resizeMazeCanvas();
+}
+window.addEventListener('resize', onResize);
+
+/* ==========================================================================
+   5. TEXTURE HELPERS
+   ========================================================================== */
+function makeTopTexture() {
+  const S = 128;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 8; i++) {
+    const p = (i / 8) * S;
+    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
+  }
+  const g = ctx.createRadialGradient(S / 2, S / 2, S * 0.08, S / 2, S / 2, S * 0.72);
+  g.addColorStop(0, 'rgba(255,255,255,0.16)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+
+  ctx.strokeStyle = 'rgba(255,255,255,1)'; ctx.lineWidth = 7;
+  ctx.strokeRect(3.5, 3.5, S - 7, S - 7);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function makeWindowTexture() {
+  const S = 64;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#05020c'; ctx.fillRect(0, 0, S, S);
+  const cols = 8, rows = 8, cw = S / cols, ch = S / rows;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (Math.random() < 0.52) {
+        const hue = Math.random() < 0.55 ? 190 : 320;
+        const light = 42 + Math.random() * 35;
+        ctx.fillStyle = `hsl(${hue}, 100%, ${light}%)`;
+        ctx.fillRect(x * cw + cw * 0.18, y * ch + ch * 0.16, cw * 0.64, ch * 0.52);
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 3);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function makeSunTexture() {
+  const S = 256;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+  const grad = ctx.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S / 2);
+  grad.addColorStop(0.00, 'rgba(255,240,190,1.0)');
+  grad.addColorStop(0.22, 'rgba(255,190,90,1.0)');
+  grad.addColorStop(0.45, 'rgba(255,80,150,0.95)');
+  grad.addColorStop(0.72, 'rgba(200,30,160,0.35)');
+  grad.addColorStop(1.00, 'rgba(120,0,120,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 9; i++) {
+    const y = S * 0.50 + i * (S * 0.052);
+    const h = 2 + i * 1.9;
+    ctx.fillRect(0, y, S, h);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeSignTexture(text, color) {
+  const W = 512, H = 128;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(6,2,16,0.9)'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.strokeRect(7, 7, W - 14, H - 14);
+  ctx.font = '900 66px Orbitron, "Courier New", monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = color; ctx.shadowBlur = 26;
+  ctx.fillStyle = color;
+  ctx.fillText(text, W / 2, H / 2 + 3);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const topTex = makeTopTexture();
+
+/* ==========================================================================
+   4. SKY, CITY, ATMOSPHERE, FLOOR
+   ========================================================================== */
+const skyGroup = new THREE.Group();
+scene.add(skyGroup);
+
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+  uniforms: {
+    topColor:     { value: new THREE.Color(0.012, 0.004, 0.045) },
+    midColor:     { value: new THREE.Color(0.16, 0.03, 0.32) },
+    horizonColor: { value: new THREE.Color(0.85, 0.10, 0.42) },
+  },
+  vertexShader: /* glsl */`
+    varying vec3 vPos;
+    void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform vec3 topColor; uniform vec3 midColor; uniform vec3 horizonColor;
+    varying vec3 vPos;
+    void main(){
+      vec3 d = normalize(vPos);
+      float h = clamp(d.y, -1.0, 1.0);
+      vec3 col = mix(horizonColor, midColor, smoothstep(0.0, 0.22, h));
+      col = mix(col, topColor, smoothstep(0.16, 0.75, h));
+      col = mix(vec3(0.035, 0.008, 0.075), col, smoothstep(-0.42, 0.015, h));
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 20), skyMat);
+skyMesh.renderOrder = -999;
+skyMesh.frustumCulled = false;
+skyGroup.add(skyMesh);
+
+const sunTex = makeSunTexture();
+const sunMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({
+    map: sunTex, transparent: true, blending: THREE.AdditiveBlending,
+    depthWrite: false, depthTest: false, fog: false, toneMapped: false,
+  })
+);
+sunMesh.scale.set(360, 360, 1);
+sunMesh.position.set(-30, 90, -1050);
+sunMesh.renderOrder = -998;
+sunMesh.frustumCulled = false;
+skyGroup.add(sunMesh);
+
+(function buildStars() {
+  const N = 900;
+  const positions = new Float32Array(N * 3);
+  const v = new THREE.Vector3();
+  let i = 0;
+  while (i < N) {
+    v.randomDirection().multiplyScalar(1400);
+    if (v.y < 60) continue;
+    positions[i * 3] = v.x; positions[i * 3 + 1] = v.y; positions[i * 3 + 2] = v.z;
+    i++;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({
+    color: 0xaee8ff, size: 2.2, sizeAttenuation: false,
+    transparent: true, opacity: 0.85, depthWrite: false, depthTest: false, fog: false,
+  }));
+  stars.renderOrder = -997;
+  stars.frustumCulled = false;
+  skyGroup.add(stars);
+})();
+
+(function buildCity() {
+  const tex = makeWindowTexture();
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x0a0515, map: tex, emissive: 0x442277, emissiveMap: tex,
+    emissiveIntensity: 0.45, roughness: 0.95, metalness: 0.1,
+  });
+  const COUNT = 140;
+  const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const p = new THREE.Vector3();
+  const s = new THREE.Vector3();
+  const col = new THREE.Color();
+  for (let i = 0; i < COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 75 + Math.random() * 540;
+    const x = Math.cos(angle) * dist;
+    const z = Math.sin(angle) * dist - 85;
+    const w = 14 + Math.random() * 34;
+    const d = 14 + Math.random() * 34;
+    const h = 55 + Math.random() * 250;
+    const topY = -25 - Math.random() * 75;
+    p.set(x, topY - h / 2, z); s.set(w, h, d);
+    m4.compose(p, q, s);
+    mesh.setMatrixAt(i, m4);
+    col.setHSL(0.72 + Math.random() * 0.12, 0.85, 0.38);
+    mesh.setColorAt(i, col);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+})();
+
+const floorGeo = new THREE.PlaneGeometry(6000, 6000);
+floorGeo.rotateX(-Math.PI / 2);
+
+const floorMat = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  uniforms: {
+    uTime: { value: 0 },
+    uColor1: { value: new THREE.Color(0x00e5ff) },
+    uColor2: { value: new THREE.Color(0xff2d95) },
+    uPlayerPos: { value: new THREE.Vector3(0, 0, 0) }
+  },
+  vertexShader: /* glsl */`
+    varying vec3 vWorldPosition;
+    void main() {
+      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPosition.xyz;
+      gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform float uTime;
+    uniform vec3 uColor1;
+    uniform vec3 uColor2;
+    uniform vec3 uPlayerPos;
+    varying vec3 vWorldPosition;
+
+    void main() {
+      vec2 coord = vWorldPosition.xz;
+      vec2 gridUv = coord * 0.08;
+      float dist = length(vWorldPosition.xz - uPlayerPos.xz);
+      float fade = 1.0 - smoothstep(200.0, 1200.0, dist);
+      vec2 grid = abs(fract(gridUv - 0.5) - 0.5);
+      float lineThickness = 0.015;
+      float lineX = smoothstep(0.5 - lineThickness, 0.5, grid.x);
+      float lineZ = smoothstep(0.5 - lineThickness, 0.5, grid.y);
+      float line = max(lineX, lineZ);
+      float pulse = sin(uTime * 2.0 + coord.x * 0.05 + coord.y * 0.05) * 0.5 + 0.5;
+      float mixVal = sin(vWorldPosition.x * 0.01 + vWorldPosition.z * 0.01) * 0.5 + 0.5;
+      vec3 color = mix(uColor1, uColor2, mixVal);
+      gl_FragColor = vec4(color * line * 2.5, line * fade * 0.85);
+    }
+  `
+});
+
+const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+floorMesh.position.y = -95;
+floorMesh.frustumCulled = false;
+scene.add(floorMesh);
+
+(function buildSigns() {
+  const signs = [
+    { text: 'ZVEZDA', color: '#00e5ff', x: -34, y: 15, z: -34, ry: 0.55 },
+    { text: '2084',   color: '#ff2d95', x:  30, y: 11, z: -88, ry: -0.7 },
+    { text: 'GRID',   color: '#39ff88', x: -26, y: 26, z: -150, ry: 0.5 },
+  ];
+  for (const s of signs) {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(14, 3.5),
+      new THREE.MeshBasicMaterial({
+        map: makeSignTexture(s.text, s.color),
+        transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false,
+      })
+    );
+    mesh.position.set(s.x, s.y, s.z);
+    mesh.rotation.y = s.ry;
+    scene.add(mesh);
+  }
+})();
+
+const particles = (function buildParticles() {
+  const N = 1400;
+  const positions = new Float32Array(N * 3);
+  const speeds = new Float32Array(N);
+  const RANGE_XZ = 220;
+  for (let i = 0; i < N; i++) {
+    positions[i * 3]     = (Math.random() - 0.5) * RANGE_XZ * 2;
+    positions[i * 3 + 1] = Math.random() * 70 - 10;
+    positions[i * 3 + 2] = -Math.random() * 260 + 40;
+    speeds[i] = 1.2 + Math.random() * 3.4;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const S = 32;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const grd = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.4, 'rgba(160,230,255,0.7)');
+  grd.addColorStop(1, 'rgba(120,0,255,0)');
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, S, S);
+  const sprTex = new THREE.CanvasTexture(c);
+  sprTex.colorSpace = THREE.SRGBColorSpace;
+
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.34, map: sprTex, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+    sizeAttenuation: true, color: 0x9fe8ff,
+  }));
+  points.frustumCulled = false;
+  scene.add(points);
+  return { points, speeds, count: N, RANGE_XZ };
+})();
+
+function updateParticles(dt) {
+  const attr = particles.points.geometry.attributes.position;
+  const arr = attr.array;
+  const { speeds, count, RANGE_XZ } = particles;
+  for (let i = 0; i < count; i++) {
+    const iy = i * 3 + 1;
+    arr[iy] += speeds[i] * dt;
+    if (arr[iy] > 62) {
+      arr[iy] = -12;
+      arr[i * 3]     = (Math.random() - 0.5) * RANGE_XZ * 2;
+      arr[i * 3 + 2] = -Math.random() * 260 + 40;
+    }
+  }
+  attr.needsUpdate = true;
+}
+
+/* ==========================================================================
+   6. WORLD — platforms, lasers, endless generation
+   ========================================================================== */
+const colliders = [];
+const dynamicObjects = [];
+const lasers = [];
+
+const unitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+const unitEdgesGeo = new THREE.EdgesGeometry(unitBoxGeo);
+const topPlaneGeo = new THREE.PlaneGeometry(1, 1);
+topPlaneGeo.rotateX(-Math.PI / 2);
+
+const bodyMat = new THREE.MeshStandardMaterial({
+  color: 0x0c0722, metalness: 0.9, roughness: 0.32,
+  emissive: 0x1b0a3c, emissiveIntensity: 0.55,
+});
+
+const edgeMatCache = new Map();
+function getEdgeMat(color) {
+  if (!edgeMatCache.has(color)) {
+    edgeMatCache.set(color, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity: 0.95,
+    }));
+  }
+  return edgeMatCache.get(color);
+}
+const topMatCache = new Map();
+function getTopMat(color) {
+  if (!topMatCache.has(color)) {
+    topMatCache.set(color, new THREE.MeshBasicMaterial({
+      map: topTex, color, transparent: true,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+  }
+  return topMatCache.get(color);
+}
+
+const _tmpV = new THREE.Vector3();
+
+function addPlatform({ x = 0, y = 0, z = 0, w = 6, d = 6, h = 1.1, edge = 0x00e5ff, move = null }) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+
+  const body = new THREE.Mesh(unitBoxGeo, bodyMat);
+  body.scale.set(w, h, d);
+  body.position.y = -h / 2;
+  group.add(body);
+
+  const edges = new THREE.LineSegments(unitEdgesGeo, getEdgeMat(edge));
+  edges.scale.set(w, h, d);
+  edges.position.y = -h / 2;
+  group.add(edges);
+
+  const top = new THREE.Mesh(topPlaneGeo, getTopMat(edge));
+  top.scale.set(w, 1, d);
+  top.position.y = 0.02;
+  group.add(top);
+
+  scene.add(group);
+
+  const obj = { group, w, h, d, box: new THREE.Box3(), move: null, delta: new THREE.Vector3() };
+  updateColliderBox(obj);
+
+  if (move) {
+    obj.move = {
+      axis: move.axis, amp: move.amp, speed: move.speed,
+      phase: move.phase || 0, base: new THREE.Vector3(x, y, z),
+    };
+    dynamicObjects.push(obj);
+  }
+  colliders.push(obj);
+  return obj;
+}
+
+function updateColliderBox(obj) {
+  const p = obj.group.position;
+  obj.box.min.set(p.x - obj.w / 2, p.y - obj.h, p.z - obj.d / 2);
+  obj.box.max.set(p.x + obj.w / 2, p.y,        p.z + obj.d / 2);
+}
+
+const laserCoreMat = new THREE.MeshBasicMaterial({ color: 0xff2d95, toneMapped: false });
+const laserGlowMat = new THREE.MeshBasicMaterial({
+  color: 0xff2d95, transparent: true, opacity: 0.22,
+  blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+});
+
+function addLaser({ x = 0, y = 0, z = 0, w = 0.2, h = 0.2, d = 0.2 }) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+
+  const core = new THREE.Mesh(unitBoxGeo, laserCoreMat);
+  core.scale.set(w, h, d);
+  group.add(core);
+
+  const glow = new THREE.Mesh(unitBoxGeo, laserGlowMat);
+  glow.scale.set(w + 0.4, h + 0.4, d + 0.4);
+  group.add(glow);
+
+  scene.add(group);
+
+  const obj = {
+    group, w, h, d, box: new THREE.Box3(), move: null,
+    delta: new THREE.Vector3(), laser: true,
+  };
+  updateLaserBox(obj);
+  lasers.push(obj);
+  return obj;
+}
+
+function updateLaserBox(obj) {
+  const p = obj.group.position;
+  obj.box.min.set(p.x - obj.w / 2, p.y - obj.h / 2, p.z - obj.d / 2);
+  obj.box.max.set(p.x + obj.w / 2, p.y + obj.h / 2, p.z + obj.d / 2);
+}
+
+const world = {
+  nextFrontZ: -9,
+  lastX: 0,
+  lastY: 0,
+  count: 0,
+  spawnPos: new THREE.Vector3(0, 0.25, 4),
+};
+
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function createStartPlatform() {
+  addPlatform({ x: 0, y: 0, z: 0, w: 16, d: 18, edge: 0x00e5ff });
+  world.nextFrontZ = -9;
+  world.lastX = 0;
+  world.lastY = 0;
+  world.count = 0;
+}
+
+function generateNextPlatform() {
+  const diff = Math.min(1, world.count / 70);
+  const isRest = (world.count > 0 && world.count % 14 === 0);
+
+  let w, d, gap;
+  if (isRest) {
+    w = rand(8, 10); d = rand(8, 10); gap = rand(3.4, 5.0);
+  } else {
+    w = Math.max(3.0, rand(4.2, 7.0) - diff * 1.8);
+    d = Math.max(3.0, rand(4.2, 7.0) - diff * 1.8);
+    gap = rand(2.6, 4.8) + diff * 0.9;
+  }
+
+  let x = world.lastX + rand(-4.2, 4.2);
+  x = Math.max(-19, Math.min(19, x));
+
+  let y = world.lastY + rand(-1.6, 1.3);
+  y = Math.max(0, Math.min(38, y));
+
+  const z = world.nextFrontZ - gap - d / 2;
+
+  const r = Math.random();
+  const edge = r < 0.45 ? 0x00e5ff : (r < 0.8 ? 0xff2d95 : 0x39ff88);
+
+  let move = null;
+  if (!isRest && world.count > 7 && Math.random() < 0.17) {
+    move = {
+      axis: 'x', amp: rand(2.0, 4.0), speed: rand(0.7, 1.4),
+      phase: Math.random() * Math.PI * 2,
+    };
+  }
+
+  addPlatform({ x, y, z, w, d, edge, move });
+
+  if (!isRest && !move && world.count > 4 && Math.random() < 0.20) {
+    addLaser({
+      x,
+      y: y + 0.10,
+      z: z + (Math.random() - 0.5) * d * 0.3,
+      w: w * 0.90,
+      h: 0.16,
+      d: 0.55,
+    });
+  }
+
+  world.lastX = x;
+  world.lastY = y;
+  world.nextFrontZ = z - d / 2;
+  world.count++;
+}
+
+function generateAhead() {
+  const horizon = player.pos.z - 155;
+  let guard = 0;
+  while (world.nextFrontZ > horizon && guard++ < 40) {
+    generateNextPlatform();
+  }
+}
+
+function cullWorld() {
+  const behind = player.pos.z + 62;
+  for (let i = colliders.length - 1; i >= 0; i--) {
+    const o = colliders[i];
+    if (o === player.ground) continue;
+    if (o.group.position.z > behind) {
+      scene.remove(o.group);
+      colliders.splice(i, 1);
+      const di = dynamicObjects.indexOf(o);
+      if (di >= 0) dynamicObjects.splice(di, 1);
+    }
+  }
+  for (let i = lasers.length - 1; i >= 0; i--) {
+    const o = lasers[i];
+    if (o.group.position.z > behind) {
+      scene.remove(o.group);
+      lasers.splice(i, 1);
+    }
+  }
+}
+
+function clearWorld() {
+  for (const o of colliders) scene.remove(o.group);
+  for (const o of lasers) scene.remove(o.group);
+  colliders.length = 0;
+  lasers.length = 0;
+  dynamicObjects.length = 0;
+}
+
+function updateDynamicObjects(time) {
+  for (let i = 0; i < dynamicObjects.length; i++) {
+    const obj = dynamicObjects[i];
+    const m = obj.move;
+    if (!m) continue;
+
+    const off = Math.sin(time * m.speed + m.phase) * m.amp;
+    _tmpV.copy(m.base);
+    _tmpV[m.axis] += off;
+
+    obj.delta.subVectors(_tmpV, obj.group.position);
+    obj.group.position.copy(_tmpV);
+
+    updateColliderBox(obj);
+  }
+}
+
+function updateLaserPulse(time) {
+  laserGlowMat.opacity = 0.16 + Math.abs(Math.sin(time * 4.0)) * 0.20;
+}
+
+/* ==========================================================================
+   7. PLAYER CONTROLLER & PHYSICS
+   ========================================================================== */
+const START_SPAWN = new THREE.Vector3(0, 0.25, 4);
+
+const player = {
+  pos: new THREE.Vector3().copy(START_SPAWN),
+  vel: new THREE.Vector3(),
+  yaw: 0,
+  pitch: 0,
+
+  onGround: false,
+  ground: null,
+  jumpsLeft: 1,
+  coyote: 0,
+  jumpBufferTimer: 0,
+
+  dashTime: 0,
+  dashCd: 0,
+  dashDir: new THREE.Vector3(),
+
+  bobPhase: 0,
+  camBobY: 0,
+  camRoll: 0,
+  landShake: 0,
+  fov: CFG.fovBase,
+
+  respawnLock: 0,
+};
+
+const keys = Object.create(null);
+
+const P_R = CFG.radius;
+const P_H = CFG.height;
+
+function resolveAxis(axis, delta) {
+  if (delta === 0) return;
+  const p = player.pos;
+  p[axis] += delta;
+
+  for (let i = 0; i < colliders.length; i++) {
+    const b = colliders[i].box;
+
+    if (p.x + P_R <= b.min.x || p.x - P_R >= b.max.x) continue;
+    if (p.y + P_H <= b.min.y || p.y       >= b.max.y) continue;
+    if (p.z + P_R <= b.min.z || p.z - P_R >= b.max.z) continue;
+
+    if (axis === 'y') {
+      if (delta > 0) {
+        p.y = b.min.y - P_H - 0.001;
+        if (player.vel.y > 0) player.vel.y = 0;
+      } else {
+        p.y = b.max.y + 0.001;
+        player.vel.y = 0;
+        player.onGround = true;
+        player.ground = colliders[i];
+      }
+    } else if (axis === 'x') {
+      if (delta > 0) p.x = b.min.x - P_R - 0.001;
+      else           p.x = b.max.x + P_R + 0.001;
+      player.vel.x = 0;
+    } else {
+      if (delta > 0) p.z = b.min.z - P_R - 0.001;
+      else           p.z = b.max.z + P_R + 0.001;
+      player.vel.z = 0;
+    }
+  }
+}
+
+function moveAndCollide(dx, dy, dz) {
+  const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
+  const steps = Math.min(12, Math.max(1, Math.ceil(maxComp / 0.35)));
+  const sx = dx / steps, sy = dy / steps, sz = dz / steps;
+
+  for (let i = 0; i < steps; i++) {
+    resolveAxis('x', sx);
+    resolveAxis('z', sz);
+    resolveAxis('y', sy);
+  }
+}
+
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _wish = new THREE.Vector3();
+const _desired = new THREE.Vector3();
+const _diff = new THREE.Vector3();
+
+function computeWish() {
+  const cy = Math.cos(player.yaw);
+  const sy = Math.sin(player.yaw);
+  _fwd.set(-sy, 0, -cy);
+  _right.set(cy, 0, -sy);
+
+  _wish.set(0, 0, 0);
+  if (keys['KeyW'] || keys['ArrowUp'])    _wish.add(_fwd);
+  if (keys['KeyS'] || keys['ArrowDown'])  _wish.sub(_fwd);
+  if (keys['KeyD'] || keys['ArrowRight']) _wish.add(_right);
+  if (keys['KeyA'] || keys['ArrowLeft'])  _wish.sub(_right);
+
+  const len2 = _wish.lengthSq();
+  if (len2 > 0.0001) _wish.multiplyScalar(1 / Math.sqrt(len2));
+  return len2 > 0.0001;
+}
+
+function updatePlayer(dt) {
+  if (player.ground && player.ground.move) {
+    player.pos.add(player.ground.delta);
+  }
+
+  const wasOnGround = player.onGround;
+
+  if (wasOnGround) {
+    player.coyote = CFG.coyoteTime;
+    player.jumpsLeft = 1;
+  } else {
+    player.coyote = Math.max(0, player.coyote - dt);
+  }
+
+  if (player.jumpBufferTimer > 0) player.jumpBufferTimer -= dt;
+  if (player.dashCd > 0)          player.dashCd -= dt;
+  if (player.respawnLock > 0)     player.respawnLock -= dt;
+
+  const hasInput = computeWish();
+
+  const sprinting = !!(keys['ShiftLeft'] || keys['ShiftRight']);
+  const targetSpeed = (sprinting ? CFG.sprintSpeed : CFG.walkSpeed) * stats.speedMult;
+
+  if (player.dashTime <= 0) {
+    if (hasInput) {
+      _desired.copy(_wish).multiplyScalar(targetSpeed);
+      _diff.set(_desired.x - player.vel.x, 0, _desired.z - player.vel.z);
+
+      const accel = (wasOnGround ? CFG.groundAccel : CFG.airAccel) * dt;
+      const len = _diff.length();
+      if (len > accel && len > 0.0001) _diff.multiplyScalar(accel / len);
+
+      player.vel.x += _diff.x;
+      player.vel.z += _diff.z;
+    } else if (wasOnGround) {
+      const hv = Math.hypot(player.vel.x, player.vel.z);
+      if (hv > 0.001) {
+        const drop = Math.min(hv, CFG.groundFriction * dt);
+        const scale = (hv - drop) / hv;
+        player.vel.x *= scale;
+        player.vel.z *= scale;
+      } else {
+        player.vel.x = 0;
+        player.vel.z = 0;
+      }
+    }
+  }
+
+  if (player.jumpBufferTimer > 0) {
+    const canGroundJump = wasOnGround || player.coyote > 0;
+    if (canGroundJump) {
+      player.vel.y = CFG.jumpVel * stats.jumpMult;
+      player.coyote = 0;
+      player.jumpBufferTimer = 0;
+      player.onGround = false;
+      Sfx.jump();
+    } else if (player.jumpsLeft > 0) {
+      player.vel.y = CFG.doubleJumpVel * stats.jumpMult;
+      player.jumpsLeft--;
+      player.jumpBufferTimer = 0;
+      Sfx.doubleJump();
+      spawnBurst(player.pos.x, player.pos.y + 0.4, player.pos.z, 0x00e5ff);
+    }
+  }
+
+  if (player.dashTime > 0) {
+    player.dashTime -= dt;
+    player.vel.x = player.dashDir.x * CFG.dashSpeed;
+    player.vel.z = player.dashDir.z * CFG.dashSpeed;
+    if (player.vel.y < -2) player.vel.y = -2;
+    if (player.dashTime <= 0) {
+      player.vel.x *= 0.72;
+      player.vel.z *= 0.72;
+    }
+  }
+
+  player.onGround = false;
+  player.ground = null;
+
+  player.vel.y -= CFG.gravity * dt;
+  if (player.vel.y < -CFG.maxFall) player.vel.y = -CFG.maxFall;
+
+  moveAndCollide(player.vel.x * dt, player.vel.y * dt, player.vel.z * dt);
+
+  if (player.onGround && player.ground) {
+    const g = player.ground;
+    world.spawnPos.set(g.group.position.x, g.group.position.y + 0.25, g.group.position.z);
+  }
+
+  if (!wasOnGround && player.onGround) {
+    const impact = Math.abs(player.vel.y);
+    if (impact > 4) {
+      player.landShake = Math.min(0.16, impact * 0.008);
+      Sfx.land();
+    }
+  }
+
+  if (player.pos.y < CFG.killY) {
+    loseLife('fall');
+  }
+}
+
+function tryDash() {
+  if (player.dashCd > 0 || player.dashTime > 0) return;
+
+  const has = computeWish();
+  if (!has) _wish.copy(_fwd);
+  _wish.y = 0;
+  const l = Math.hypot(_wish.x, _wish.z);
+  if (l < 0.0001) return;
+  _wish.multiplyScalar(1 / l);
+
+  player.dashDir.copy(_wish);
+  player.dashTime = CFG.dashTime;
+  player.dashCd = CFG.dashCooldown;
+  player.vel.y = Math.max(player.vel.y, 0);
+
+  Sfx.dash();
+  spawnBurst(player.pos.x, player.pos.y + 0.9, player.pos.z, 0xff2d95);
+}
+
+function loseLife(reason) {
+  if (player.respawnLock > 0 || state !== 'playing') return;
+
+  stats.lives--;
+  updateLivesHUD();
+
+  if (stats.lives <= 0) {
+    gameOver();
+    return;
+  }
+
+  player.respawnLock = 0.55;
+  player.pos.copy(world.spawnPos);
+  player.vel.set(0, 0, 0);
+  player.dashTime = 0;
+  player.dashCd = 0;
+  player.jumpBufferTimer = 0;
+  player.coyote = 0;
+  player.jumpsLeft = 1;
+  player.onGround = false;
+  player.ground = null;
+  player.camBobY = 0;
+  player.camRoll = 0;
+  player.landShake = 0;
+
+  flashScreen('rgba(255, 0, 68, 0.85)', 480);
+  Sfx.die();
+  showToast(reason === 'fall' ? 'YOU FELL' : 'HIT');
+}
+
+function updateCamera(dt) {
+  const hSpeed = Math.hypot(player.vel.x, player.vel.z);
+  const maxSpeed = CFG.sprintSpeed * stats.speedMult;
+  const speedFactor = Math.min(hSpeed / maxSpeed, 1);
+
+  if (player.onGround && hSpeed > 0.6) {
+    player.bobPhase += hSpeed * dt * 1.35;
+  } else {
+    player.bobPhase += dt * 1.0;
+  }
+
+  const targetBobY = player.onGround
+    ? Math.sin(player.bobPhase * 1.6) * 0.020 * speedFactor
+    : 0.0;
+
+  const strafe = (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0) -
+                 (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0);
+  const targetRoll =
+    Math.cos(player.bobPhase) * 0.009 * speedFactor -
+    strafe * 0.010;
+
+  const k = 1 - Math.exp(-9 * dt);
+  player.camBobY += (targetBobY - player.camBobY) * k;
+  player.camRoll += (targetRoll - player.camRoll) * k;
+
+  if (player.landShake > 0) player.landShake = Math.max(0, player.landShake - dt * 1.4);
+  const shake = player.landShake > 0
+    ? Math.sin(player.landShake * 70) * player.landShake * 0.4
+    : 0;
+
+  let targetFov = CFG.fovBase;
+  const isSprinting = !!(keys['ShiftLeft'] || keys['ShiftRight']);
+  if (player.dashTime > 0) targetFov = CFG.fovDash;
+  else if (isSprinting && speedFactor > 0.72) targetFov = CFG.fovSprint;
+
+  player.fov += (targetFov - player.fov) * Math.min(1, dt * 6);
+  camera.fov = player.fov;
+  camera.updateProjectionMatrix();
+
+  const dashRoll = player.dashTime > 0 ? 0.045 : 0;
+
+  camera.position.set(
+    player.pos.x,
+    player.pos.y + CFG.eyeHeight + player.camBobY + shake,
+    player.pos.z
+  );
+  camera.rotation.set(player.pitch, player.yaw, player.camRoll + dashRoll);
+
+  playerLight.position.set(player.pos.x, player.pos.y + 1.4, player.pos.z);
+}
+
+/* ---------- Burst particles ---------- */
+const burstPool = [];
+(function initBurstPool() {
+  for (let k = 0; k < 6; k++) {
+    const N = 26;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0x00e5ff, size: 0.22, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+      sizeAttenuation: true, toneMapped: false,
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    pts.visible = false;
+    scene.add(pts);
+    burstPool.push({ pts, geo, mat, velocities: new Float32Array(N * 3), life: 0, maxLife: 0.55, count: N });
+  }
+})();
+let burstCursor = 0;
+const _burstV = new THREE.Vector3();
+
+function spawnBurst(x, y, z, color) {
+  const b = burstPool[burstCursor];
+  burstCursor = (burstCursor + 1) % burstPool.length;
+  const arr = b.geo.attributes.position.array;
+  for (let i = 0; i < b.count; i++) {
+    arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = z;
+    _burstV.randomDirection();
+    _burstV.y = Math.abs(_burstV.y) * 0.9 + 0.1;
+    _burstV.multiplyScalar(2.5 + Math.random() * 4);
+    b.velocities[i * 3] = _burstV.x;
+    b.velocities[i * 3 + 1] = _burstV.y;
+    b.velocities[i * 3 + 2] = _burstV.z;
+  }
+  b.geo.attributes.position.needsUpdate = true;
+  b.mat.color.setHex(color);
+  b.mat.opacity = 1;
+  b.pts.visible = true;
+  b.life = 0;
+  b.maxLife = 0.55;
+}
+
+function updateBursts(dt) {
+  for (const b of burstPool) {
+    if (!b.pts.visible) continue;
+    b.life += dt;
+    const t = b.life / b.maxLife;
+    if (t >= 1) { b.pts.visible = false; b.mat.opacity = 0; continue; }
+    const arr = b.geo.attributes.position.array;
+    for (let i = 0; i < b.count; i++) {
+      arr[i * 3]     += b.velocities[i * 3] * dt;
+      arr[i * 3 + 1] += b.velocities[i * 3 + 1] * dt;
+      arr[i * 3 + 2] += b.velocities[i * 3 + 2] * dt;
+      b.velocities[i * 3 + 1] -= 9 * dt;
+    }
+    b.geo.attributes.position.needsUpdate = true;
+    b.mat.opacity = 1 - t;
+  }
+}
+
+function updateHazards() {
+  if (player.respawnLock > 0 || state !== 'playing') return;
+  if (player.dashTime > 0) return;
+
+  const px0 = player.pos.x - P_R + 0.06, px1 = player.pos.x + P_R - 0.06;
+  const py0 = player.pos.y + 0.06,        py1 = player.pos.y + P_H - 0.06;
+  const pz0 = player.pos.z - P_R + 0.06, pz1 = player.pos.z + P_R - 0.06;
+
+  for (let i = 0; i < lasers.length; i++) {
+    const b = lasers[i].box;
+    if (px1 > b.min.x && px0 < b.max.x &&
+        py1 > b.min.y && py0 < b.max.y &&
+        pz1 > b.min.z && pz0 < b.max.z) {
+      loseLife('laser');
+      return;
+    }
+  }
+}
+
+/* ==========================================================================
+   8. THE 2D PIXEL MAZE
+   ========================================================================== */
+const Maze = {
+  active: false,
+  W: 0, H: 0,
+  grid: null,
+  off: null,
+  T: 24,
+  px: 0, py: 0, pvx: 0, pvy: 0,
+  exitX: 0, exitY: 0,
+  time: 0,
+  completed: false,
+  canvas: null,
+  ctx: null,
+  fx: null,
+  hud: null,
+  trail: [],
+};
+
+function hash2(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+const mazeSolid = (x, y) =>
+  x < 0 || y < 0 || x >= Maze.W || y >= Maze.H || Maze.grid[y * Maze.W + x] === 1;
+
+function buildMaze() {
+  const W = 49, H = 37;
+  Maze.W = W; Maze.H = H;
+
+  const grid = new Uint8Array(W * H).fill(1);
+  const idx = (x, y) => y * W + x;
+
+  const rooms = [];
+  for (let attempt = 0; attempt < 200 && rooms.length < 8; attempt++) {
+    const rw = [7, 9, 11][Math.floor(Math.random() * 3)];
+    const rh = [5, 7, 9][Math.floor(Math.random() * 3)];
+    const rx = 1 + Math.floor(Math.random() * (W - rw - 2));
+    const ry = 1 + Math.floor(Math.random() * (H - rh - 2));
+    if (rooms.some(o =>
+      rx < o.x + o.w + 3 && rx + rw + 3 > o.x &&
+      ry < o.y + o.h + 3 && ry + rh + 3 > o.y)) continue;
+    rooms.push({ x: rx, y: ry, w: rw, h: rh });
+  }
+  if (rooms.length === 0) rooms.push({ x: 2, y: 2, w: 9, h: 9 });
+
+  for (const r of rooms) {
+    for (let y = r.y; y < r.y + r.h; y++)
+      for (let x = r.x; x < r.x + r.w; x++)
+        grid[idx(x, y)] = 0;
+  }
+
+  const center = r => ({ x: Math.floor(r.x + r.w / 2), y: Math.floor(r.y + r.h / 2) });
+  const sorted = rooms.slice().sort((a, b) => center(a).x - center(b).x);
+
+  const carveH = (x0, x1, y) => {
+    for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) grid[idx(x, y)] = 0;
+  };
+  const carveV = (y0, y1, x) => {
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) grid[idx(x, y)] = 0;
+  };
+
+  for (let i = 1; i < sorted.length; i++) {
+    const a = center(sorted[i - 1]);
+    const b = center(sorted[i]);
+    carveH(a.x, b.x, a.y);
+    carveV(a.y, b.y, b.x);
+  }
+
+  for (let i = 0; i < 3; i++) {
+    if (sorted.length < 3) break;
+    const a = center(sorted[Math.floor(Math.random() * sorted.length)]);
+    const b = center(sorted[Math.floor(Math.random() * sorted.length)]);
+    if (a.x === b.x && a.y === b.y) continue;
+    carveH(a.x, b.x, a.y);
+    carveV(a.y, b.y, b.x);
+  }
+
+  const start = center(sorted[0]);
+  const exit  = center(sorted[sorted.length - 1]);
+
+  Maze.px = start.x + 0.5;
+  Maze.py = start.y + 0.5;
+  Maze.pvx = 0; Maze.pvy = 0;
+  Maze.exitX = exit.x;
+  Maze.exitY = exit.y;
+  Maze.time = 0;
+  Maze.completed = false;
+  Maze.trail.length = 0;
+
+  Maze.grid = grid;
+  renderMazeStatic();
+}
+
+function renderMazeStatic() {
+  const { W, H, grid, T } = Maze;
+
+  const off = document.createElement('canvas');
+  off.width = W * T;
+  off.height = H * T;
+  const c = off.getContext('2d');
+
+  c.fillStyle = '#04010a';
+  c.fillRect(0, 0, off.width, off.height);
+
+  const isWall = (x, y) => x < 0 || y < 0 || x >= W || y >= H || grid[y * W + x] === 1;
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (isWall(x, y)) continue;
+      const px = x * T, py = y * T;
+      c.fillStyle = '#0a0518';
+      c.fillRect(px, py, T, T);
+      c.strokeStyle = 'rgba(70, 40, 140, 0.30)';
+      c.lineWidth = 1;
+      c.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
+
+      const h = hash2(x, y);
+      if (h > 0.94) {
+        c.fillStyle = 'rgba(0,229,255,0.20)';
+        c.fillRect(px + T * 0.34, py + T * 0.34, T * 0.32, T * 0.32);
+      } else if (h > 0.90) {
+        c.fillStyle = 'rgba(255,45,149,0.16)';
+        c.fillRect(px + T * 0.40, py + T * 0.40, T * 0.20, T * 0.20);
+      }
+    }
+  }
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (!isWall(x, y)) continue;
+      const nearFloor =
+        !isWall(x + 1, y) || !isWall(x - 1, y) ||
+        !isWall(x, y + 1) || !isWall(x, y - 1) ||
+        !isWall(x + 1, y + 1) || !isWall(x - 1, y - 1) ||
+        !isWall(x + 1, y - 1) || !isWall(x - 1, y + 1);
+      if (!nearFloor) continue;
+
+      const px = x * T, py = y * T;
+      c.fillStyle = '#150a2c';
+      c.fillRect(px, py, T, T);
+      c.fillStyle = 'rgba(58, 20, 118, 0.55)';
+      c.fillRect(px + 3, py + 3, T - 6, T - 6);
+
+      const line = (x1, y1, x2, y2) => {
+        c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke();
+      };
+      c.lineWidth = 3;
+      c.shadowBlur = 12;
+
+      if (!isWall(x, y - 1)) {
+        c.strokeStyle = '#00e5ff'; c.shadowColor = '#00e5ff';
+        line(px, py + 1.5, px + T, py + 1.5);
+      }
+      if (!isWall(x, y + 1)) {
+        c.strokeStyle = '#ff2d95'; c.shadowColor = '#ff2d95';
+        line(px, py + T - 1.5, px + T, py + T - 1.5);
+      }
+      if (!isWall(x - 1, y)) {
+        c.strokeStyle = '#8a2be2'; c.shadowColor = '#8a2be2';
+        line(px + 1.5, py, px + 1.5, py + T);
+      }
+      if (!isWall(x + 1, y)) {
+        c.strokeStyle = '#8a2be2'; c.shadowColor = '#8a2be2';
+        line(px + T - 1.5, py, px + T - 1.5, py + T);
+      }
+      c.shadowBlur = 0;
+
+      const h = hash2(x * 7 + 3, y * 13 + 5);
+      if (h > 0.74) {
+        c.fillStyle = h > 0.90 ? '#39ff88' : '#00e5ff';
+        c.globalAlpha = 0.6;
+        c.fillRect(px + T * 0.30, py + T * 0.26, T * 0.13, T * 0.13);
+        c.fillRect(px + T * 0.58, py + T * 0.55, T * 0.11, T * 0.11);
+        c.globalAlpha = 1;
+      }
+    }
+  }
+
+  const ex = (Maze.exitX + 0.5) * T;
+  const ey = (Maze.exitY + 0.5) * T;
+  c.save();
+  c.shadowColor = '#39ff88';
+  c.shadowBlur = 26;
+  c.strokeStyle = '#39ff88';
+  c.lineWidth = 3;
+  c.beginPath(); c.arc(ex, ey, T * 0.40, 0, Math.PI * 2); c.stroke();
+  c.beginPath(); c.arc(ex, ey, T * 0.20, 0, Math.PI * 2); c.stroke();
+  c.restore();
+
+  Maze.off = off;
+}
+
+function resizeMazeCanvas() {
+  const cv = Maze.canvas;
+  if (!cv) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.floor(window.innerWidth * dpr);
+  cv.height = Math.floor(window.innerHeight * dpr);
+  Maze.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  Maze.ctx.imageSmoothingEnabled = false;
+}
+
+function mazeMoveAxis(axis, delta) {
+  if (delta === 0) return;
+  const r = 0.30;
+
+  if (axis === 'x') Maze.px += delta;
+  else              Maze.py += delta;
+
+  const x0 = Math.floor(Maze.px - r), x1 = Math.floor(Maze.px + r);
+  const y0 = Math.floor(Maze.py - r), y1 = Math.floor(Maze.py + r);
+
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) {
+      if (!mazeSolid(tx, ty)) continue;
+      if (Maze.px + r > tx && Maze.px - r < tx + 1 &&
+          Maze.py + r > ty && Maze.py - r < ty + 1) {
+        if (axis === 'x') {
+          Maze.px = delta > 0 ? tx - r - 0.001 : tx + 1 + r + 0.001;
+          Maze.pvx = 0;
+        } else {
+          Maze.py = delta > 0 ? ty - r - 0.001 : ty + 1 + r + 0.001;
+          Maze.pvy = 0;
+        }
+      }
+    }
+  }
+}
+
+function updateMaze(dt) {
+  if (Maze.completed) return;
+  Maze.time += dt;
+
+  let ix = 0, iy = 0;
+  if (keys['KeyA'] || keys['ArrowLeft'])  ix -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+  if (keys['KeyW'] || keys['ArrowUp'])    iy -= 1;
+  if (keys['KeyS'] || keys['ArrowDown'])  iy += 1;
+
+  if (ix !== 0 && iy !== 0) { ix *= 0.7071; iy *= 0.7071; }
+
+  const SPEED = 8.6;
+  const k = 1 - Math.exp(-18 * dt);
+  Maze.pvx += (ix * SPEED - Maze.pvx) * k;
+  Maze.pvy += (iy * SPEED - Maze.pvy) * k;
+
+  mazeMoveAxis('x', Maze.pvx * dt);
+  mazeMoveAxis('y', Maze.pvy * dt);
+
+  Maze.trail.push(Maze.px, Maze.py);
+  if (Maze.trail.length > 32) Maze.trail.splice(0, 2);
+
+  const dx = Maze.px - (Maze.exitX + 0.5);
+  const dy = Maze.py - (Maze.exitY + 0.5);
+  if (dx * dx + dy * dy < 0.42) {
+    Maze.completed = true;
+    completeMaze();
+  }
+}
+
+function renderMaze() {
+  const cv = Maze.canvas;
+  const c = Maze.ctx;
+  const W = cv.width, H = cv.height;
+  const T = Maze.T;
+
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = '#04010a';
+  c.fillRect(0, 0, W, H);
+
+  const tilePx = Math.min(W / 23, H / 15);
+  const scale = tilePx / T;
+
+  c.save();
+  c.imageSmoothingEnabled = false;
+  c.translate(W / 2, H / 2);
+  c.scale(scale, scale);
+  c.translate(-(Maze.px + 0.5) * T, -(Maze.py + 0.5) * T);
+
+  c.drawImage(Maze.off, 0, 0);
+
+  const ex = (Maze.exitX + 0.5) * T;
+  const ey = (Maze.exitY + 0.5) * T;
+  const pulse = 0.55 + Math.sin(Maze.time * 4.2) * 0.35;
+  const grad = c.createRadialGradient(ex, ey, 0, ex, ey, T * 1.6 * pulse + T * 0.6);
+  grad.addColorStop(0, 'rgba(57,255,136,0.90)');
+  grad.addColorStop(0.45, 'rgba(57,255,136,0.30)');
+  grad.addColorStop(1, 'rgba(57,255,136,0)');
+  c.fillStyle = grad;
+  c.beginPath();
+  c.arc(ex, ey, T * 2.0, 0, Math.PI * 2);
+  c.fill();
+
+  for (let i = 0; i < Maze.trail.length; i += 2) {
+    const a = ((i / Maze.trail.length) * 0.30).toFixed(3);
+    c.fillStyle = `rgba(0,229,255,${a})`;
+    c.fillRect(
+      Maze.trail[i] * T - T * 0.12,
+      Maze.trail[i + 1] * T - T * 0.12,
+      T * 0.24, T * 0.24
+    );
+  }
+
+  const px = Maze.px * T;
+  const py = Maze.py * T;
+  const s = T * 0.52;
+
+  c.save();
+  c.shadowColor = '#00e5ff';
+  c.shadowBlur = 22;
+  c.fillStyle = '#d9fbff';
+  c.fillRect(px - s / 2, py - s / 2, s, s);
+  c.fillStyle = '#00e5ff';
+  c.fillRect(px - s / 2, py - s / 2, s, s * 0.38);
+  c.restore();
+
+  c.restore();
+
+  const relX = (ex - (Maze.px + 0.5) * T) * scale;
+  const relY = (ey - (Maze.py + 0.5) * T) * scale;
+  const relDist = Math.hypot(relX, relY);
+  const viewRadius = Math.min(W, H) * 0.34;
+
+  if (relDist > viewRadius) {
+    const ang = Math.atan2(relY, relX);
+    const cx = W / 2 + Math.cos(ang) * viewRadius;
+    const cy = H / 2 + Math.sin(ang) * viewRadius;
+
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(ang);
+    c.shadowColor = '#39ff88';
+    c.shadowBlur = 22;
+    c.fillStyle = '#39ff88';
+    c.beginPath();
+    c.moveTo(16, 0);
+    c.lineTo(-9, -10);
+    c.lineTo(-9, 10);
+    c.closePath();
+    c.fill();
+    c.restore();
+  }
+}
+
+/* ==========================================================================
+   9. GAME STATE / UI / INPUT
+   ========================================================================== */
+let state = 'menu';
+let elapsed = 0;
+let distance = 0;
+let bestDistance = 0;
+let nextMazeAt = CFG.mazeInterval;
+let mazeOffer = false;
+
+const elSpeedVal  = document.getElementById('speedVal');
+const elSpeedBar  = document.getElementById('speedBar');
+const elDashBar   = document.getElementById('dashBar');
+const elDashState = document.getElementById('dashState');
+const elTimerVal  = document.getElementById('timerVal');
+const elDistVal   = document.getElementById('distVal');
+const elLivesVal  = document.getElementById('livesVal');
+const elMazePrompt= document.getElementById('mazePrompt');
+const elToast     = document.getElementById('toast');
+const elFlash     = document.getElementById('flash');
+const elHud       = document.getElementById('hud');
+const elMenu      = document.getElementById('menu');
+const elPause     = document.getElementById('pause');
+const elGameOver  = document.getElementById('gameover');
+const elUpgrade   = document.getElementById('upgrade');
+const elGamble    = document.getElementById('gamble');
+const elFade      = document.getElementById('fade');
+const elLoading   = document.getElementById('loading');
+const elGoTime    = document.getElementById('goTime');
+const elGoDist    = document.getElementById('goDist');
+const elGoUpg     = document.getElementById('goUpg');
+
+Maze.canvas = document.getElementById('mazeCanvas');
+Maze.ctx = Maze.canvas.getContext('2d');
+Maze.fx = document.getElementById('mazeFx');
+Maze.hud = document.getElementById('mazeHud');
+resizeMazeCanvas();
+
+/* Gamble UI Elements */
+const elGambleSelection = document.getElementById('gamble-selection');
+const elGambleGames = {
+  blackjack: document.getElementById('gamble-blackjack'),
+  roulette: document.getElementById('gamble-roulette'),
+  slots: document.getElementById('gamble-slots'),
+  higherlower: document.getElementById('gamble-higherlower'),
+  plinko: document.getElementById('gamble-plinko')
+};
+
+/* Compass Elements */
+const compass = document.getElementById('compass');
+const compassArrow = document.getElementById('compass-arrow');
+const compassBtn = document.getElementById('compass-btn');
+let compassTimer = 0;
+
+function showCompass() {
+  if (state !== 'playing') return;
+  compass.classList.add('active');
+  clearTimeout(compassTimer);
+  compassTimer = setTimeout(() => {
+    compass.classList.remove('active');
+  }, 3000);
+}
+
+compassBtn.addEventListener('click', showCompass);
+
+/* Fade helpers */
+function fadeOut(ms, cb) {
+  elFade.style.transition = `opacity ${ms}ms ease`;
+  elFade.style.opacity = '1';
+  setTimeout(cb, ms);
+}
+function fadeIn(ms) {
+  elFade.style.transition = `opacity ${ms}ms ease`;
+  setTimeout(() => { elFade.style.opacity = '0'; }, 30);
+}
+
+/* Flash / toast */
+function flashScreen(color, ms) {
+  elFlash.style.transition = 'none';
+  elFlash.style.background = color;
+  elFlash.style.opacity = '0.85';
+  void elFlash.offsetWidth;
+  elFlash.style.transition = `opacity ${ms}ms ease-out`;
+  elFlash.style.opacity = '0';
+}
+
+let toastTimer = 0;
+function showToast(text) {
+  elToast.textContent = text;
+  elToast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => elToast.classList.remove('show'), 1900);
+}
+
+/* Formatting */
+function formatTime(t) {
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  const cs = Math.floor((t * 100) % 100);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+}
+
+/* HUD */
+function updateLivesHUD() {
+  const n = Math.max(0, stats.lives);
+  let s = '';
+  for (let i = 0; i < n; i++) s += '◆';
+  if (n === 0) s = '—';
+  elLivesVal.textContent = s;
+  elLivesVal.style.color = n <= 1 ? '#ff2d95' : '#ff6ec7';
+}
+
+function updateHUD() {
+  const hSpeed = Math.hypot(player.vel.x, player.vel.z);
+  const maxS = CFG.sprintSpeed * stats.speedMult;
+
+  elSpeedVal.textContent = hSpeed.toFixed(1);
+  elSpeedBar.style.width = Math.min(100, (hSpeed / maxS) * 100) + '%';
+
+  const dashRatio = 1 - Math.max(0, player.dashCd) / CFG.dashCooldown;
+  elDashBar.style.width = (dashRatio * 100).toFixed(1) + '%';
+  elDashState.textContent = player.dashCd > 0 ? 'CHARGING' : 'READY';
+  elDashState.style.color = player.dashCd > 0 ? '#ff9ecb' : '#39ff88';
+
+  elTimerVal.textContent = formatTime(elapsed);
+  elDistVal.textContent = Math.floor(distance) + ' M';
+
+  elMazePrompt.classList.toggle('show', mazeOffer && state === 'playing');
+}
+
+/* Game flow */
+function startGame() {
+  stats.speedMult = 1;
+  stats.jumpMult = 1;
+  stats.maxLives = 3;
+  stats.lives = 3;
+  gambleUsed = false;
+
+  elapsed = 0;
+  distance = 0;
+  bestDistance = 0;
+  nextMazeAt = CFG.mazeInterval;
+  mazeOffer = false;
+
+  clearWorld();
+  createStartPlatform();
+
+  player.pos.copy(START_SPAWN);
+  player.vel.set(0, 0, 0);
+  player.yaw = 0;
+  player.pitch = 0;
+  player.dashCd = 0;
+  player.dashTime = 0;
+  player.respawnLock = 0;
+  player.fov = CFG.fovBase;
+  player.onGround = false;
+  player.ground = null;
+  player.camBobY = 0;
+  player.camRoll = 0;
+  player.landShake = 0;
+  player.jumpsLeft = 1;
+  player.coyote = 0;
+
+  world.spawnPos.copy(START_SPAWN);
+  generateAhead();
+
+  updateLivesHUD();
+  updateHUD();
+
+  elMenu.classList.add('hidden');
+  elPause.classList.add('hidden');
+  elGameOver.classList.add('hidden');
+  elUpgrade.classList.add('hidden');
+  elGamble.classList.add('hidden');
+  elHud.classList.remove('hidden');
+
+  state = 'playing';
+}
+
+function restartRun() {
+  elGameOver.classList.add('hidden');
+  elGamble.classList.add('hidden');
+  startGame();
+  requestLock();
+}
+
+function gameOver() {
+  if (state !== 'playing') return;
+  state = 'gameover';
+  elGoTime.textContent = formatTime(elapsed);
+  elGoDist.textContent = Math.floor(bestDistance) + ' M';
+
+  const parts = [];
+  if (stats.speedMult > 1.001) parts.push(`SPD ${stats.speedMult.toFixed(2)}×`);
+  if (stats.jumpMult > 1.001)  parts.push(`JMP ${stats.jumpMult.toFixed(2)}×`);
+  if (stats.maxLives > 3)      parts.push(`+${stats.maxLives - 3}♥`);
+  elGoUpg.textContent = parts.length ? parts.join(' · ') : '—';
+
+  const gambleBtn = document.getElementById('gambleBtn');
+  if (gambleUsed) {
+    gambleBtn.style.display = 'none';
+  } else {
+    gambleBtn.style.display = 'block';
+  }
+
+  elGameOver.classList.remove('hidden');
+  elMazePrompt.classList.remove('show');
+  Sfx.gameover();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  elPause.classList.remove('hidden');
+  elMazePrompt.classList.remove('show');
+}
+
+function requestLock() {
+  try {
+    const p = canvas.requestPointerLock();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+
+function enterMaze() {
+  if (state !== 'playing' || !mazeOffer) return;
+
+  mazeOffer = false;
+  state = 'mazePrep';
+  elMazePrompt.classList.remove('show');
+  Sfx.mazeEnter();
+
+  player.vel.set(0, 0, 0);
+  player.onGround = false;
+  player.ground = null;
+
+  if (document.pointerLockElement) document.exitPointerLock();
+
+  fadeOut(420, () => {
+    buildMaze();
+    Maze.active = true;
+    Maze.canvas.classList.add('active');
+    Maze.fx.classList.add('active');
+    Maze.hud.classList.add('active');
+    elHud.classList.add('hidden');
+    state = 'maze';
+    fadeIn(420);
+  });
+}
+
+function completeMaze() {
+  if (state !== 'maze') return;
+  state = 'mazeDone';
+  Sfx.mazeWin();
+
+  fadeOut(420, () => {
+    Maze.active = false;
+    Maze.canvas.classList.remove('active');
+    Maze.fx.classList.remove('active');
+    Maze.hud.classList.remove('active');
+
+    player.vel.set(0, 0, 0);
+    player.onGround = false;
+    player.ground = null;
+
+    elUpgrade.classList.remove('hidden');
+    state = 'upgrade';
+    fadeIn(420);
+  });
+}
+
+function chooseUpgrade(type) {
+  if (state !== 'upgrade') return;
+
+  if (type === 'speed') {
+    stats.speedMult = Math.min(2.0, stats.speedMult * 1.12);
+    showToast('SPEED +12%');
+  } else if (type === 'jump') {
+    stats.jumpMult = Math.min(1.75, stats.jumpMult * 1.10);
+    showToast('JUMP +10%');
+  } else if (type === 'life') {
+    stats.maxLives = Math.min(9, stats.maxLives + 1);
+    stats.lives = Math.min(stats.maxLives, stats.lives + 1);
+    showToast('EXTRA LIFE');
+  }
+
+  Sfx.upgrade();
+  updateLivesHUD();
+
+  elUpgrade.classList.add('hidden');
+  elHud.classList.remove('hidden');
+
+  nextMazeAt = elapsed + CFG.mazeInterval;
+  mazeOffer = false;
+
+  state = 'playing';
+  requestLock();
+}
+
+/* ---------- REVIVE GAMBLE SYSTEM ---------- */
+function resetGambleUI() {
+  elGambleSelection.style.display = 'grid';
+  document.getElementById('gamble-cancel').style.display = 'block';
+  for (const key in elGambleGames) {
+    elGambleGames[key].classList.add('hidden');
+  }
+}
+
+function openGamble() {
+  if (state !== 'gameover') return;
+  state = 'gamble';
+  elGameOver.classList.add('hidden');
+  elGamble.classList.remove('hidden');
+  resetGambleUI();
+}
+
+function closeGamble() {
+  if (state !== 'gamble') return;
+  gambleUsed = true;
+  elGamble.classList.add('hidden');
+  elGameOver.classList.remove('hidden');
+  state = 'gameover';
+  gameOver();
+}
+
+function revivePlayer(hearts, speedBoost = false) {
+  stats.lives = hearts;
+  if (speedBoost) {
+    stats.speedMult *= 1.15;
+    showToast('SPEED BOOST +15%');
+  }
+  
+  updateLivesHUD();
+  
+  // Reset player
+  player.pos.copy(world.spawnPos);
+  player.vel.set(0, 0, 0);
+  player.dashTime = 0;
+  player.dashCd = 0;
+  player.respawnLock = 0;
+  player.onGround = false;
+  player.ground = null;
+  player.camBobY = 0;
+  player.camRoll = 0;
+  player.landShake = 0;
+  
+  elGamble.classList.add('hidden');
+  elHud.classList.remove('hidden');
+  
+  state = 'playing';
+  requestLock();
+  flashScreen('rgba(57, 255, 136, 0.5)', 600);
+}
+
+function loseGamble() {
+  showToast('GAMBLE LOST');
+  setTimeout(() => {
+    elGamble.classList.add('hidden');
+    elGameOver.classList.remove('hidden');
+    state = 'gameover';
+    
+    // Force hide the gamble button immediately
+    const gambleBtn = document.getElementById('gambleBtn');
+    gambleBtn.style.display = 'none';
+    gambleBtn.disabled = true;
+
+    gameOver();
+  }, 1500);
+}
+
+/* ---------- MINI GAMES ---------- */
+
+/* 1. Blackjack */
+let bjPlayer = [];
+let bjDealer = [];
+let bjPlaying = false;
+
+function drawCard() {
+  const cards = [2,3,4,5,6,7,8,9,10,10,10,10,11];
+  return cards[Math.floor(Math.random() * cards.length)];
+}
+function cardName(v) {
+  if (v === 11) return 'A';
+  if (v === 10) return ['10','J','Q','K'][Math.floor(Math.random()*4)];
+  return String(v);
+}
+function renderBJ() {
+  const pDiv = document.getElementById('bj-player-cards');
+  const dDiv = document.getElementById('bj-dealer-cards');
+  pDiv.innerHTML = bjPlayer.map(v => `<div class="blackjack-card ${v===11?'red':''}">${cardName(v)}</div>`).join('');
+  dDiv.innerHTML = bjDealer.map((v, i) => {
+    if (i === 1 && bjPlaying) return `<div class="blackjack-card hidden-card">?</div>`;
+    return `<div class="blackjack-card ${v===11?'red':''}">${cardName(v)}</div>`;
+  }).join('');
+}
+function bjScore(hand) {
+  let s = hand.reduce((a,b)=>a+b, 0);
+  let aces = hand.filter(v=>v===11).length;
+  while (s > 21 && aces > 0) { s -= 10; aces--; }
+  return s;
+}
+function startBlackjack() {
+  bjPlayer = [drawCard(), drawCard()];
+  bjDealer = [drawCard(), drawCard()];
+  bjPlaying = true;
+  document.getElementById('bj-result').textContent = '';
+  document.getElementById('bj-actions').style.display = 'block';
+  renderBJ();
+}
+document.getElementById('bj-hit').onclick = () => {
+  if (!bjPlaying) return;
+  bjPlayer.push(drawCard());
+  renderBJ();
+  if (bjScore(bjPlayer) > 21) endBlackjack(false);
+};
+document.getElementById('bj-stand').onclick = () => {
+  if (!bjPlaying) return;
+  while (bjScore(bjDealer) < 17) bjDealer.push(drawCard());
+  bjPlaying = false;
+  renderBJ();
+  const ps = bjScore(bjPlayer), ds = bjScore(bjDealer);
+  if (ds > 21 || ps > ds) endBlackjack(true);
+  else if (ps === ds) endBlackjack(false);
+  else endBlackjack(false);
+};
+function endBlackjack(win) {
+  bjPlaying = false;
+  document.getElementById('bj-actions').style.display = 'none';
+  document.getElementById('bj-result').textContent = win ? 'YOU WIN — REVIVED WITH 1 ♥' : 'DEALER WINS — SIGNAL LOST';
+  document.getElementById('bj-result').style.color = win ? '#39ff88' : '#ff2d95';
+  if (win) setTimeout(() => revivePlayer(1), 1500);
+  else setTimeout(loseGamble, 1500);
+}
+
+/* 2. Roulette */
+document.getElementById('roulette-spin').onclick = () => {
+  const btn = document.getElementById('roulette-spin');
+  const wheel = document.getElementById('roulette-wheel');
+  const res = document.getElementById('roulette-result');
+  btn.disabled = true;
+  res.textContent = 'SPINNING...';
+  res.style.color = '#fff';
+  
+  wheel.style.transform = `rotate(${720 + Math.random() * 360}deg)`;
+  
+  setTimeout(() => {
+    const win = Math.random() < 0.5;
+    if (win) {
+      res.textContent = 'RED WINS — REVIVED WITH 1 ♥';
+      res.style.color = '#39ff88';
+      setTimeout(() => revivePlayer(1), 1500);
+    } else {
+      res.textContent = 'BLACK WINS — SIGNAL LOST';
+      res.style.color = '#ff2d95';
+      setTimeout(loseGamble, 1500);
+    }
+  }, 3000);
+};
+
+/* 3. Slots */
+document.getElementById('slots-spin').onclick = () => {
+  const btn = document.getElementById('slots-spin');
+  const res = document.getElementById('slots-result');
+  btn.disabled = true;
+  res.textContent = 'SPINNING...';
+  res.style.color = '#fff';
+  
+  const symbols = ['🍒', '🔔', '💎', '7️⃣'];
+  let ticks = 0;
+  const interval = setInterval(() => {
+    document.getElementById('slot-1').textContent = symbols[Math.floor(Math.random()*4)];
+    document.getElementById('slot-2').textContent = symbols[Math.floor(Math.random()*4)];
+    document.getElementById('slot-3').textContent = symbols[Math.floor(Math.random()*4)];
+    ticks++;
+    if (ticks > 15) {
+      clearInterval(interval);
+      const win = Math.random() < 0.3;
+      if (win) {
+        const finalSym = symbols[Math.floor(Math.random()*4)];
+        document.getElementById('slot-1').textContent = finalSym;
+        document.getElementById('slot-2').textContent = finalSym;
+        document.getElementById('slot-3').textContent = finalSym;
+        res.textContent = 'JACKPOT — REVIVED WITH 2 ♥';
+        res.style.color = '#39ff88';
+        setTimeout(() => revivePlayer(2), 1500);
+      } else {
+        res.textContent = 'NO MATCH — SIGNAL LOST';
+        res.style.color = '#ff2d95';
+        setTimeout(loseGamble, 1500);
+      }
+    }
+  }, 80);
+};
+
+/* 4. Higher/Lower */
+let hlCurrent = 7;
+document.getElementById('hl-higher').onclick = () => resolveHL(true);
+document.getElementById('hl-lower').onclick = () => resolveHL(false);
+
+function startHigherLower() {
+  hlCurrent = drawCard();
+  document.getElementById('hl-current-card').textContent = cardName(hlCurrent);
+  document.getElementById('hl-current-card').className = 'blackjack-card ' + (hlCurrent === 11 ? 'red' : '');
+  document.getElementById('hl-result').textContent = '';
+  document.getElementById('hl-higher').disabled = false;
+  document.getElementById('hl-lower').disabled = false;
+}
+
+function resolveHL(isHigher) {
+  document.getElementById('hl-higher').disabled = true;
+  document.getElementById('hl-lower').disabled = true;
+  const next = drawCard();
+  const win = isHigher ? (next > hlCurrent) : (next < hlCurrent);
+  
+  const res = document.getElementById('hl-result');
+  res.textContent = `Next was ${cardName(next)} — ` + (win ? 'YOU WIN' : 'YOU LOSE');
+  res.style.color = win ? '#39ff88' : '#ff2d95';
+  
+  if (win) setTimeout(() => revivePlayer(1), 1500);
+  else setTimeout(loseGamble, 1500);
+}
+
+/* 5. Plinko */
+document.getElementById('plinko-drop').onclick = () => {
+  const btn = document.getElementById('plinko-drop');
+  const ball = document.getElementById('plinko-ball');
+  const res = document.getElementById('plinko-result');
+  btn.disabled = true;
+  res.textContent = '';
+  ball.classList.remove('hidden');
+  ball.style.top = '0px';
+  ball.style.left = '50%';
+  
+  const win = Math.random() < 0.3;
+  
+  setTimeout(() => {
+    if (win) {
+      ball.style.top = '180px';
+      ball.style.left = '25%';
+      ball.style.background = '#39ff88';
+      res.textContent = 'WIN — REVIVED WITH 1 ♥ + SPEED BOOST';
+      res.style.color = '#39ff88';
+      setTimeout(() => revivePlayer(1, true), 1500);
+    } else {
+      ball.style.top = '180px';
+      ball.style.left = '75%';
+      ball.style.background = '#ff2d95';
+      res.textContent = 'LOSE — SIGNAL LOST';
+      res.style.color = '#ff2d95';
+      setTimeout(loseGamble, 1500);
+    }
+  }, 100);
+};
+
+/* Gamble Event Listeners */
+document.getElementById('gambleBtn').onclick = openGamble;
+document.getElementById('gamble-cancel').onclick = closeGamble;
+
+document.querySelectorAll('.game-card').forEach(card => {
+  card.onclick = () => {
+    if (gambleUsed) return;
+    gambleUsed = true;
+    document.getElementById('gamble-cancel').style.display = 'none';
+    
+    const game = card.dataset.game;
+    elGambleSelection.style.display = 'none';
+    
+    for (const key in elGambleGames) {
+      elGambleGames[key].classList.add('hidden');
+    }
+    elGambleGames[game].classList.remove('hidden');
+    
+    if (game === 'blackjack') startBlackjack();
+    if (game === 'roulette') {
+      document.getElementById('roulette-spin').disabled = false;
+      document.getElementById('roulette-result').textContent = '';
+    }
+    if (game === 'slots') {
+      document.getElementById('slots-spin').disabled = false;
+      document.getElementById('slots-result').textContent = '';
+      document.getElementById('slot-1').textContent = '❓';
+      document.getElementById('slot-2').textContent = '❓';
+      document.getElementById('slot-3').textContent = '❓';
+    }
+    if (game === 'higherlower') startHigherLower();
+    if (game === 'plinko') {
+      document.getElementById('plinko-drop').disabled = false;
+      document.getElementById('plinko-result').textContent = '';
+      document.getElementById('plinko-ball').classList.add('hidden');
+      document.getElementById('plinko-ball').style.background = '#ff2d95';
+    }
+  };
+});
+
+/* Pointer lock */
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === canvas;
+
+  if (locked) {
+    if (state === 'menu') {
+      startGame();
+    } else if (state === 'paused') {
+      state = 'playing';
+      elPause.classList.add('hidden');
+    }
+    elMenu.classList.add('hidden');
+  } else {
+    if (state === 'playing') pauseGame();
+  }
+});
+
+document.addEventListener('pointerlockerror', () => {
+  if (state === 'menu') {
+    startGame();
+    showToast('POINTER LOCK UNAVAILABLE');
+  }
+});
+
+/* Drag look fallback */
+let dragging = false;
+let dragLastX = 0, dragLastY = 0;
+canvas.addEventListener('mousedown', () => { dragging = true; });
+window.addEventListener('mouseup', () => { dragging = false; });
+
+/* Buttons */
+document.getElementById('startBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  Sfx.init();
+  requestLock();
+});
+document.getElementById('resumeBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  requestLock();
+});
+document.getElementById('retryBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  restartRun();
+});
+elMenu.addEventListener('click', () => { Sfx.init(); requestLock(); });
+elPause.addEventListener('click', () => { requestLock(); });
+
+/* Upgrade cards */
+document.querySelectorAll('.upg').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    chooseUpgrade(el.dataset.upg);
+  });
+});
+
+/* Keyboard */
+window.addEventListener('keydown', (e) => {
+  if (!Sfx.ctx) Sfx.init();
+  keys[e.code] = true;
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'playing' && !e.repeat) {
+      player.jumpBufferTimer = CFG.jumpBuffer;
+    }
+  }
+
+  if (e.code === 'KeyQ' && state === 'playing' && !e.repeat) {
+    tryDash();
+  }
+
+  if (e.code === 'KeyE' && state === 'playing' && !e.repeat && mazeOffer) {
+    enterMaze();
+  }
+
+  if (e.code === 'KeyC' && state === 'playing' && !e.repeat) {
+    showCompass();
+  }
+
+  if (e.code === 'Escape' && state === 'playing' && !document.pointerLockElement) {
+    pauseGame();
+  }
+
+  if (state === 'upgrade' && !e.repeat) {
+    if (e.code === 'Digit1') chooseUpgrade('speed');
+    else if (e.code === 'Digit2') chooseUpgrade('jump');
+    else if (e.code === 'Digit3') chooseUpgrade('life');
+  }
+
+  if (state === 'gameover' && e.code === 'KeyR') restartRun();
+
+  if (e.code.startsWith('Arrow')) e.preventDefault();
+});
+
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+window.addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  dragging = false;
+});
+
+/* Mouse look */
+document.addEventListener('mousemove', (e) => {
+  if (state !== 'playing') return;
+
+  const locked = document.pointerLockElement === canvas;
+  let mx = 0, my = 0;
+
+  if (locked) {
+    mx = e.movementX || 0;
+    my = e.movementY || 0;
+  } else if (dragging) {
+    mx = e.movementX || (e.clientX - dragLastX);
+    my = e.movementY || (e.clientY - dragLastY);
+  } else {
+    dragLastX = e.clientX;
+    dragLastY = e.clientY;
+    return;
+  }
+  dragLastX = e.clientX;
+  dragLastY = e.clientY;
+
+  player.yaw   -= mx * CFG.mouseSens;
+  player.pitch -= my * CFG.mouseSens;
+
+  const lim = Math.PI / 2 - 0.02;
+  if (player.pitch >  lim) player.pitch =  lim;
+  if (player.pitch < -lim) player.pitch = -lim;
+});
+
+/* ==========================================================================
+   10. MAIN LOOP
+   ========================================================================== */
+let lastTime = performance.now();
+let worldTime = 0;
+let menuCamAngle = 0;
+
+function animate(now) {
+  requestAnimationFrame(animate);
+
+  let dt = (now - lastTime) / 1000;
+  lastTime = now;
+  if (dt > 0.05) dt = 0.05;
+  if (dt < 0) dt = 0;
+
+  const worldActive = (state === 'playing' || state === 'menu');
+  if (worldActive) {
+    worldTime += dt;
+    updateDynamicObjects(worldTime);
+    updateLaserPulse(worldTime);
+    vignettePass.uniforms.time.value = worldTime;
+
+    floorMat.uniforms.uTime.value = worldTime;
+    floorMat.uniforms.uPlayerPos.value.copy(player.pos);
+  }
+
+  updateParticles(dt);
+  updateBursts(dt);
+
+  if (state === 'playing') {
+    elapsed += dt;
+
+    updatePlayer(dt);
+    updateHazards();
+    updateCamera(dt);
+
+    // Update Compass Arrow Rotation
+    if (compassArrow) {
+      compassArrow.style.transform = `rotate(${player.yaw}rad)`;
+    }
+
+    generateAhead();
+    cullWorld();
+
+    const d = Math.max(0, -player.pos.z);
+    distance = d;
+    if (d > bestDistance) bestDistance = d;
+
+    if (!mazeOffer && elapsed >= nextMazeAt) {
+      mazeOffer = true;
+      Sfx.mazeOpen();
+      showToast('THE GRID IS OPEN — PRESS E');
+    }
+
+    updateHUD();
+  } else if (state === 'menu') {
+    menuCamAngle += dt * 0.12;
+    const r = 26;
+    camera.position.set(
+      Math.cos(menuCamAngle) * r,
+      9 + Math.sin(menuCamAngle * 0.7) * 2.5,
+      12 + Math.sin(menuCamAngle) * r
+    );
+    camera.lookAt(0, 2, -22);
+    camera.fov = CFG.fovBase;
+    camera.updateProjectionMatrix();
+  } else if (state === 'maze') {
+    updateMaze(dt);
+  }
+
+  const mazeActive = (state === 'maze' || state === 'mazeDone');
+
+  if (!mazeActive) {
+    skyGroup.position.copy(camera.position);
+    composer.render();
+  } else {
+    renderMaze();
+  }
+}
+
+/* Boot */
+onResize();
+elLoading.classList.add('hidden');
+window.__NEON_STARTED__ = true;
+
+camera.position.set(0, 6, 20);
+camera.lookAt(0, 2, -20);
+
+requestAnimationFrame(animate);
+
+/* Pause on tab hidden */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') {
+    if (document.pointerLockElement) document.exitPointerLock();
+    else pauseGame();
+  }
+});
+</script>
+</body>
+</html>
