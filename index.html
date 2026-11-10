@@ -1371,16 +1371,18 @@ const world = {
   lastY: 0,
   count: 0,
   spawnPos: new THREE.Vector3(0, 0.25, 4),
+  spawnPlatform: null, // NEW: Tracks the actual platform for accurate respawns
 };
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
 function createStartPlatform() {
-  addPlatform({ x: 0, y: 0, z: 0, w: 16, d: 18, edge: 0x00e5ff });
+  const p = addPlatform({ x: 0, y: 0, z: 0, w: 16, d: 18, edge: 0x00e5ff });
   world.nextFrontZ = -9;
   world.lastX = 0;
   world.lastY = 0;
   world.count = 0;
+  world.spawnPlatform = p;
 }
 
 function generateNextPlatform() {
@@ -1446,7 +1448,7 @@ function cullWorld() {
   const behind = player.pos.z + 62;
   for (let i = colliders.length - 1; i >= 0; i--) {
     const o = colliders[i];
-    if (o === player.ground) continue;
+    if (o === player.ground || o === world.spawnPlatform) continue;
     if (o.group.position.z > behind) {
       scene.remove(o.group);
       colliders.splice(i, 1);
@@ -1469,6 +1471,7 @@ function clearWorld() {
   colliders.length = 0;
   lasers.length = 0;
   dynamicObjects.length = 0;
+  world.spawnPlatform = null;
 }
 
 function updateDynamicObjects(time) {
@@ -1683,6 +1686,7 @@ function updatePlayer(dt) {
   if (player.onGround && player.ground) {
     const g = player.ground;
     world.spawnPos.set(g.group.position.x, g.group.position.y + 0.25, g.group.position.z);
+    world.spawnPlatform = g;
   }
 
   if (!wasOnGround && player.onGround) {
@@ -1717,6 +1721,17 @@ function tryDash() {
   spawnBurst(player.pos.x, player.pos.y + 0.9, player.pos.z, 0xff2d95);
 }
 
+function getSpawnPosition() {
+  if (world.spawnPlatform && world.spawnPlatform.group.parent) {
+    return new THREE.Vector3(
+      world.spawnPlatform.group.position.x,
+      world.spawnPlatform.group.position.y + 0.25,
+      world.spawnPlatform.group.position.z
+    );
+  }
+  return world.spawnPos;
+}
+
 function loseLife(reason) {
   if (player.respawnLock > 0 || state !== 'playing') return;
 
@@ -1728,8 +1743,8 @@ function loseLife(reason) {
     return;
   }
 
-  player.respawnLock = 0.55;
-  player.pos.copy(world.spawnPos);
+  player.respawnLock = 1.0; // Increased from 0.55 for better safety
+  player.pos.copy(getSpawnPosition());
   player.vel.set(0, 0, 0);
   player.dashTime = 0;
   player.dashCd = 0;
@@ -2566,11 +2581,11 @@ function revivePlayer(hearts, speedBoost = false) {
   
   updateLivesHUD();
   
-  player.pos.copy(world.spawnPos);
+  player.pos.copy(getSpawnPosition());
   player.vel.set(0, 0, 0);
   player.dashTime = 0;
   player.dashCd = 0;
-  player.respawnLock = 0;
+  player.respawnLock = 1.0; // Same safety lock
   player.onGround = false;
   player.ground = null;
   player.camBobY = 0;
