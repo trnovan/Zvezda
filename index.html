@@ -2363,6 +2363,10 @@ function startGame() {
   stats.lives = 3;
   gambleUsed = false;
 
+  const gambleBtn = document.getElementById('gambleBtn');
+  gambleBtn.disabled = false;
+  gambleBtn.style.display = 'block';
+
   elapsed = 0;
   distance = 0;
   bestDistance = 0;
@@ -2412,8 +2416,9 @@ function restartRun() {
 }
 
 function gameOver() {
-  if (state !== 'playing') return;
+  if (state === 'gameover') return;
   state = 'gameover';
+
   elGoTime.textContent = formatTime(elapsed);
   elGoDist.textContent = Math.floor(bestDistance) + ' M';
 
@@ -2424,6 +2429,8 @@ function gameOver() {
   elGoUpg.textContent = parts.length ? parts.join(' · ') : '—';
 
   const gambleBtn = document.getElementById('gambleBtn');
+  gambleBtn.disabled = false;
+
   if (gambleUsed) {
     gambleBtn.style.display = 'none';
   } else {
@@ -2432,7 +2439,9 @@ function gameOver() {
 
   elGameOver.classList.remove('hidden');
   elMazePrompt.classList.remove('show');
+  elGamble.classList.add('hidden');
   Sfx.gameover();
+  
   if (document.pointerLockElement) document.exitPointerLock();
 }
 
@@ -2545,9 +2554,6 @@ function openGamble() {
 function closeGamble() {
   if (state !== 'gamble') return;
   gambleUsed = true;
-  elGamble.classList.add('hidden');
-  elGameOver.classList.remove('hidden');
-  state = 'gameover';
   gameOver();
 }
 
@@ -2560,7 +2566,6 @@ function revivePlayer(hearts, speedBoost = false) {
   
   updateLivesHUD();
   
-  // Reset player
   player.pos.copy(world.spawnPos);
   player.vel.set(0, 0, 0);
   player.dashTime = 0;
@@ -2583,15 +2588,7 @@ function revivePlayer(hearts, speedBoost = false) {
 function loseGamble() {
   showToast('GAMBLE LOST');
   setTimeout(() => {
-    elGamble.classList.add('hidden');
-    elGameOver.classList.remove('hidden');
-    state = 'gameover';
-    
-    // Force hide the gamble button immediately
-    const gambleBtn = document.getElementById('gambleBtn');
-    gambleBtn.style.display = 'none';
-    gambleBtn.disabled = true;
-
+    gambleUsed = true;
     gameOver();
   }, 1500);
 }
@@ -2986,7 +2983,6 @@ function animate(now) {
     updateHazards();
     updateCamera(dt);
 
-    // Update Compass Arrow Rotation
     if (compassArrow) {
       compassArrow.style.transform = `rotate(${player.yaw}rad)`;
     }
