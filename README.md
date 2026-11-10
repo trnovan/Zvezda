@@ -1,3 +1,5 @@
+# Zvezda
+
 # [▶️ PLAY ZVEZDA NOW](https://trnovan.github.io/Zvezda/)
 
 **Endless First-Person Cyberpunk Parkour**
@@ -7,8 +9,8 @@ ZVEZDA is a fast-paced, single-file browser game built with Three.js. Run across
 No build tools, no server, no dependencies to install. Just open the link and play.
 
 <div align="center">
-  <img src="screenshots/1.jpg" alt="ZVEZDA Neon City Gameplay" width="49%">
-  <img src="screenshots/2.jpg" alt="The Grid 2D Dungeon" width="49%">
+  <img src="screenshots/1.png" alt="ZVEZDA Neon City Gameplay" width="49%">
+  <img src="screenshots/2.png" alt="The Grid 2D Dungeon" width="49%">
 </div>
 
 ## ✨ Features
